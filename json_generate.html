@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional VEO/Grok Prompt Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+        
+        .skill-level-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        
+        .skill-btn {
+            padding: 12px 25px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .skill-btn.active {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            border-color: #38a169;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        
+        .mode-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .mode-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .help-tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 5px;
+            cursor: help;
+        }
+        
+        .help-tooltip .tooltip-icon {
+            width: 16px;
+            height: 16px;
+            background: #4299e1;
+            border-radius: 50%;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .help-tooltip:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .tooltip-content {
+            visibility: hidden;
+            opacity: 0;
+            width: 300px;
+            background: #2d3748;
+            color: white;
+            text-align: left;
+            border-radius: 8px;
+            padding: 15px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -150px;
+            transition: opacity 0.3s;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tooltip-content::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #2d3748 transparent transparent transparent;
+        }
+        
+        .form-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .main-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+        
+        .form-section {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .form-section h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+            display: flex;
+            align-items: center;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        
+        .sidebar {
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid #e2e8f0;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .template-selector h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .template-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .template-card {
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .template-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .template-card.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .template-card h4 {
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 0.95rem;
+        }
+        
+        .template-card p {
+            color: #718096;
+            font-size: 0.85rem;
+        }
+        
+        .quick-tips {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .quick-tips h4 {
+            color: #c53030;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .quick-tips ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .quick-tips li {
+            color: #742a2a;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .quick-tips li::before {
+            content: "💡";
+            position: absolute;
+            left: 0;
+        }
+        
+        .beginner-tips {
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+        }
+        
+        .beginner-tips h4 {
+            color: #2f855a;
+        }
+        
+        .beginner-tips li {
+            color: #22543d;
+        }
+        
+        .beginner-tips li::before {
+            content: "✨";
+        }
+        
+        .generate-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+        
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .output-section {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+        
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .output-header h3 {
+            color: #e2e8f0;
+        }
+        
+        .copy-btn {
+            padding: 8px 16px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+        
+        .copy-btn:hover {
+            background: #3182ce;
+        }
+        
+        .output-content {
+            background: #2d3748;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .professional-options {
+            background: #f7fafc;
+            border: 2px solid #bee3f8;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .professional-options h4 {
+            color: #2b6cb0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .expert-toggle {
+            background: #2d3748;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            font-weight: 600;
+            transition: background 0.3s ease;
+        }
+        
+        .expert-toggle:hover {
+            background: #4a5568;
+        }
+        
+        .expert-toggle.active {
+            background: #4299e1;
+        }
+        
+        @media (max-width: 1200px) {
+            .form-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                position: static;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .mode-selector {
+                flex-direction: column;
+            }
+            
+            .skill-level-selector {
+                flex-direction: column;
+            }
+            
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Professional VEO/Grok Prompt Generator</h1>
+            <p>Create cinema-quality video and image prompts with professional controls</p>
+        </div>
+        
+        <div class="skill-level-selector">
+            <button class="skill-btn active" data-level="beginner">🌟 Beginner Friendly</button>
+            <button class="skill-btn" data-level="intermediate">📷 Photography Knowledge</button>
+            <button class="skill-btn" data-level="expert">🎯 Expert/Professional</button>
+        </div>
+        
+        <div class="mode-selector">
+            <button class="mode-btn active" data-mode="video">🎥 Video Generation</button>
+            <button class="mode-btn" data-mode="image">📸 Image Generation</button>
+        </div>
+        
+        <div class="form-container">
+            <div class="main-form">
+                <!-- Basic Settings -->
+                <div class="form-section">
+                    <h3>📝 Basic Description</h3>
+                    
+                    <div class="form-group">
+                        <label>
+                            Main Prompt Description
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Describe your scene in detail. Be specific about actions, emotions, and visual elements. Example: "A confident woman dancing on a beach at sunset, hair flowing in the wind"
+                                </div>
+                            </div>
+                        </label>
+                        <textarea id="mainPrompt" placeholder="Describe your scene in detail..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Subject/Character
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Describe the main person or object. Include age, ethnicity, build, clothing, and distinctive features. Example: "Young Indian woman, athletic build, wearing a red dress"
+                                </div>
+                            </div>
+                        </label>
+                        <input type="text" id="subject" placeholder="e.g., Young woman, athletic build, long dark hair...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Location/Environment
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Where is this happening? Be specific about the setting, props, and atmosphere. Example: "Tropical beach with white sand, palm trees, and turquoise water"
+                                </div>
+                            </div>
+                        </label>
+                        <input type="text" id="location" placeholder="e.g., Beach at sunset, studio with white background...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Mood/Emotion
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    What feeling should the scene convey? This affects lighting, colors, and overall atmosphere. Example: "Joyful, carefree, energetic" or "Dramatic, mysterious, intense"
+                                </div>
+                            </div>
+                        </label>
+                        <select id="mood">
+                            <option value="joyful">😊 Joyful & Uplifting</option>
+                            <option value="dramatic">🎭 Dramatic & Intense</option>
+                            <option value="peaceful">😌 Peaceful & Calm</option>
+                            <option value="energetic">⚡ Energetic & Dynamic</option>
+                            <option value="romantic">💕 Romantic & Intimate</option>
+                            <option value="mysterious">🔮 Mysterious & Dark</option>
+                            <option value="professional">💼 Professional & Clean</option>
+                            <option value="playful">🎈 Playful & Fun</option>
+                            <option value="melancholic">🌧️ Melancholic & Contemplative</option>
+                            <option value="ethereal">✨ Ethereal & Dreamlike</option>
+                            <option value="gritty">🏭 Gritty & Raw</option>
+                            <option value="luxurious">💎 Luxurious & Opulent</option>
+                            <option value="nostalgic">📼 Nostalgic & Vintage</option>
+                            <option value="futuristic">🚀 Futuristic & Sci-Fi</option>
+                            <option value="elegant">🎩 Elegant & Sophisticated</option>
+                            <option value="rebellious">⚡ Rebellious & Edgy</option>
+                            <option value="serene">🧘 Serene & Meditative</option>
+                            <option value="powerful">💪 Powerful & Commanding</option>
+                            <option value="whimsical">🦄 Whimsical & Fantastical</option>
+                            <option value="minimalist">⚪ Minimalist & Clean</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Visual Style -->
+                <div class="form-section">
+                    <h3>🎨 Visual Style</h3>
+                    
+                    <div class="form-group">
+                        <label>
+                            Overall Style
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    The artistic approach for your content. Each style has different lighting, colors, and composition techniques.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="visualStyle">
+                            <option value="cinematic">🎬 Cinematic (Movie-like)</option>
+                            <option value="photorealistic">📸 Photorealistic</option>
+                            <option value="lifestyle">👗 Lifestyle/Fashion</option>
+                            <option value="artistic">🎨 Artistic/Creative</option>
+                            <option value="documentary">📰 Documentary Style</option>
+                            <option value="commercial">📺 Commercial/Advertising</option>
+                            <option value="editorial">📖 Editorial/Magazine</option>
+                            <option value="vintage">📼 Vintage/Retro</option>
+                            <option value="hyperrealistic">🔍 Hyperrealistic</option>
+                            <option value="fashion-editorial">👑 High Fashion Editorial</option>
+                            <option value="street-photography">🏙️ Street Photography</option>
+                            <option value="fine-art">🖼️ Fine Art Photography</option>
+                            <option value="conceptual">💭 Conceptual/Abstract</option>
+                            <option value="portrait-studio">👤 Studio Portrait</option>
+                            <option value="environmental-portrait">🌍 Environmental Portrait</option>
+                            <option value="candid-lifestyle">📱 Candid Lifestyle</option>
+                            <option value="glamour">💫 Glamour Photography</option>
+                            <option value="minimalist">⚪ Minimalist</option>
+                            <option value="surreal">🌀 Surreal/Dreamy</option>
+                            <option value="noir">🕴️ Film Noir</option>
+                            <option value="cyberpunk">🤖 Cyberpunk/Futuristic</option>
+                            <option value="naturalistic">🌿 Naturalistic</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Color Palette
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Colors set the emotional tone. Warm colors (reds, oranges) feel energetic, cool colors (blues, greens) feel calm.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="colorPalette">
+                            <option value="natural">🌿 Natural & Balanced</option>
+                            <option value="warm">🔥 Warm Tones (Sunset vibes)</option>
+                            <option value="cool">❄️ Cool Tones (Ocean vibes)</option>
+                            <option value="vibrant">🌈 Vibrant & Saturated</option>
+                            <option value="muted">🏔️ Muted & Subtle</option>
+                            <option value="monochrome">⚫ Black & White</option>
+                            <option value="neon">💫 Neon & Electric</option>
+                            <option value="pastel">🦄 Pastel & Soft</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Aspect Ratio
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    The shape of your video/image. Choose based on where you'll use it: YouTube (16:9), TikTok (9:16), Instagram posts (1:1).
+                                </div>
+                            </div>
+                        </label>
+                        <select id="aspectRatio">
+                            <option value="16:9">📺 16:9 (YouTube, Landscape)</option>
+                            <option value="9:16">📱 9:16 (TikTok, Instagram Stories)</option>
+                            <option value="1:1">⬜ 1:1 (Instagram Square)</option>
+                            <option value="4:3">📸 4:3 (Traditional Photo)</option>
+                            <option value="21:9">🎬 21:9 (Ultra-wide Cinematic)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="videoDurationGroup">
+                        <label>
+                            Video Duration
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Longer videos allow more complex scenes but take more time to generate. Start with 8 seconds for most content.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="videoDuration">
+                            <option value="4s">4 seconds (Quick clips)</option>
+                            <option value="8s" selected>8 seconds (Standard)</option>
+                            <option value="16s">16 seconds (Detailed scenes)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Camera Settings -->
+                <div class="form-section">
+                    <h3>📹 Camera & Movement</h3>
+                    
+                    <div class="form-group">
+                        <label>
+                            Camera Angle/Shot
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Different shots create different feelings: Close-ups are intimate, wide shots show environment, low angles make subjects look powerful.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="cameraAngle">
+                            <option value="medium">📷 Medium Shot (Waist up)</option>
+                            <option value="close-up">🔍 Close-up (Face/Upper body)</option>
+                            <option value="wide">🌄 Wide Shot (Full scene)</option>
+                            <option value="extreme-close-up">👁️ Extreme Close-up (Eyes/details)</option>
+                            <option value="full-body">🧍 Full Body Shot</option>
+                            <option value="over-shoulder">👥 Over-the-shoulder</option>
+                            <option value="low-angle">⬆️ Low Angle (Looking up)</option>
+                            <option value="high-angle">⬇️ High Angle (Looking down)</option>
+                            <option value="birds-eye">🦅 Bird's Eye View</option>
+                            <option value="worms-eye">🐛 Worm's Eye View</option>
+                            <option value="dutch-angle">📐 Dutch Angle (Tilted)</option>
+                            <option value="profile">👤 Profile Shot (Side view)</option>
+                            <option value="three-quarter">📐 Three-Quarter View</option>
+                            <option value="macro">🔬 Macro (Extreme close detail)</option>
+                            <option value="establishing">🏞️ Establishing Shot</option>
+                            <option value="insert">📎 Insert Shot (Detail)</option>
+                            <option value="reaction">😮 Reaction Shot</option>
+                            <option value="point-of-view">👀 Point of View (POV)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="cameraMovementGroup">
+                        <label>
+                            Camera Movement
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Camera movement adds energy and dynamism. Static shots are calm, tracking shots follow action, dollies create smooth motion.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="cameraMovement">
+                            <option value="static">🔒 Static (No movement)</option>
+                            <option value="slow-pan">↔️ Slow Pan (Left/Right)</option>
+                            <option value="dolly-in">➡️ Dolly In (Moving closer)</option>
+                            <option value="dolly-out">⬅️ Dolly Out (Moving away)</option>
+                            <option value="tracking">🏃 Tracking (Following subject)</option>
+                            <option value="crane">🏗️ Crane (Up/Down movement)</option>
+                            <option value="handheld">🤚 Handheld (Natural shake)</option>
+                            <option value="orbit">🌀 Orbit (Circling around)</option>
+                            <option value="push-in">⤴️ Push In (Smooth approach)</option>
+                            <option value="pull-out">⤵️ Pull Out (Smooth retreat)</option>
+                            <option value="tilt-up">⬆️ Tilt Up</option>
+                            <option value="tilt-down">⬇️ Tilt Down</option>
+                            <option value="whip-pan">💨 Whip Pan (Fast sweep)</option>
+                            <option value="zoom-in">🔍 Zoom In</option>
+                            <option value="zoom-out">🔍 Zoom Out</option>
+                            <option value="steadicam">🎬 Steadicam (Smooth float)</option>
+                            <option value="jib">📐 Jib Arm Movement</option>
+                            <option value="slider">📏 Slider Movement</option>
+                            <option value="reveal">🎭 Reveal Shot</option>
+                            <option value="parallax">🌊 Parallax Movement</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Lighting Style
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Lighting dramatically affects mood. Golden hour is warm and flattering, studio lighting is even and professional, dramatic lighting creates contrast and emotion.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="lightingStyle">
+                            <option value="natural">☀️ Natural Daylight</option>
+                            <option value="golden-hour">🌅 Golden Hour (Sunset/Sunrise)</option>
+                            <option value="studio">💡 Studio Lighting</option>
+                            <option value="dramatic">🎭 Dramatic Lighting</option>
+                            <option value="soft">🕯️ Soft & Even</option>
+                            <option value="harsh">⚡ Harsh & Contrasted</option>
+                            <option value="backlit">🌟 Backlit (Rim lighting)</option>
+                            <option value="ambient">🌙 Ambient/Mood lighting</option>
+                            <option value="chiaroscuro">🎨 Chiaroscuro (Strong contrast)</option>
+                            <option value="clamshell">🐚 Clamshell Lighting</option>
+                            <option value="broad">📏 Broad Lighting</option>
+                            <option value="short">📐 Short Lighting</option>
+                            <option value="loop">🔄 Loop Lighting</option>
+                            <option value="paramount">👑 Paramount/Butterfly</option>
+                            <option value="split">⚡ Split Lighting</option>
+                            <option value="rembrandt">🎭 Rembrandt Lighting</option>
+                            <option value="high-key">💡 High Key (Bright)</option>
+                            <option value="low-key">🌚 Low Key (Dark & Moody)</option>
+                            <option value="window">🪟 Window Light</option>
+                            <option value="candlelight">🕯️ Candlelight/Fire</option>
+                            <option value="neon">💫 Neon/Colored Light</option>
+                            <option value="fluorescent">💡 Fluorescent/Cool</option>
+                            <option value="tungsten">🔥 Tungsten/Warm</option>
+                            <option value="led">💎 LED Panel</option>
+                            <option value="practical">🏠 Practical/Available</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Advanced Options -->
+                <div class="form-section">
+                    <h3>⚙️ Advanced Options</h3>
+                    
+                    <div class="form-group">
+                        <label>
+                            AI Model Target
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Different AI models have different strengths. VEO3 is excellent for realistic videos, Grok is great for creative images, Runway is good for motion.
+                                </div>
+                            </div>
+                        </label>
+                        <select id="aiModel">
+                            <option value="veo3">VEO 3 (Google)</option>
+                            <option value="grok">Grok (X.ai)</option>
+                            <option value="runway">Runway ML</option>
+                            <option value="midjourney">Midjourney</option>
+                            <option value="dalle">DALL-E</option>
+                            <option value="generic">Generic/Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Quality Level</label>
+                        <select id="qualityLevel">
+                            <option value="standard">Standard Quality</option>
+                            <option value="high">High Quality</option>
+                            <option value="ultra">Ultra High Quality (4K)</option>
+                            <option value="cinema">Cinema Quality</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            Negative Prompt (What to avoid)
+                            <div class="help-tooltip">
+                                <div class="tooltip-icon">?</div>
+                                <div class="tooltip-content">
+                                    Tell the AI what NOT to include. Common issues: blurry, distorted faces, extra limbs, text, watermarks, low quality.
+                                </div>
+                            </div>
+                        </label>
+                        <textarea id="negativePrompt" placeholder="e.g., blurry, distorted, low quality, text, watermarks..."></textarea>
+                    </div>
+                    
+                    <!-- Professional Toggle -->
+                    <button class="expert-toggle" id="professionalToggle">🎯 Show Professional Camera Settings</button>
+                    
+                    <div class="professional-options hidden" id="professionalOptions">
+                        <h4>📷 Professional Camera Settings</h4>
+                        
+                        <div class="grid-3">
+                            <div class="form-group">
+                                <label>Focal Length</label>
+                                <select id="focalLength">
+                                    <option value="8mm">8mm (Fisheye)</option>
+                                    <option value="14mm">14mm (Ultra Wide)</option>
+                                    <option value="16mm">16mm (Super Wide)</option>
+                                    <option value="24mm">24mm (Wide)</option>
+                                    <option value="28mm">28mm (Wide-Normal)</option>
+                                    <option value="35mm" selected>35mm (Standard)</option>
+                                    <option value="50mm">50mm (Normal/Portrait)</option>
+                                    <option value="85mm">85mm (Portrait)</option>
+                                    <option value="105mm">105mm (Medium Tele)</option>
+                                    <option value="135mm">135mm (Telephoto)</option>
+                                    <option value="200mm">200mm (Long Telephoto)</option>
+                                    <option value="300mm">300mm (Super Telephoto)</option>
+                                    <option value="400mm">400mm (Ultra Telephoto)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Aperture</label>
+                                <select id="aperture">
+                                    <option value="f/1.2">f/1.2 (Ultra Shallow DOF)</option>
+                                    <option value="f/1.4">f/1.4 (Very Shallow DOF)</option>
+                                    <option value="f/1.8">f/1.8 (Shallow DOF)</option>
+                                    <option value="f/2.0">f/2.0 (Portrait DOF)</option>
+                                    <option value="f/2.8" selected>f/2.8 (Standard Shallow)</option>
+                                    <option value="f/4">f/4 (Moderate DOF)</option>
+                                    <option value="f/5.6">f/5.6 (Deep DOF)</option>
+                                    <option value="f/8">f/8 (Very Deep DOF)</option>
+                                    <option value="f/11">f/11 (Maximum Sharpness)</option>
+                                    <option value="f/16">f/16 (Landscape)</option>
+                                    <option value="f/22">f/22 (Ultra Deep)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" id="frameRateGroup">
+                                <label>Frame Rate</label>
+                                <select id="frameRate">
+                                    <option value="24fps" selected>24fps (Cinematic)</option>
+                                    <option value="30fps">30fps (Standard Video)</option>
+                                    <option value="60fps">60fps (Smooth Motion)</option>
+                                    <option value="120fps">120fps (Slow Motion)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>ISO/Sensitivity</label>
+                                <select id="iso">
+                                    <option value="ISO 100">ISO 100 (Lowest noise)</option>
+                                    <option value="ISO 200">ISO 200 (Very clean)</option>
+                                    <option value="ISO 400" selected>ISO 400 (Standard)</option>
+                                    <option value="ISO 800">ISO 800 (Low light)</option>
+                                    <option value="ISO 1600">ISO 1600 (High ISO)</option>
+                                    <option value="ISO 3200">ISO 3200 (Very high ISO)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Depth of Field</label>
+                                <select id="depthOfField">
+                                    <option value="shallow">Shallow (Blurred background)</option>
+                                    <option value="medium" selected>Medium (Balanced)</option>
+                                    <option value="deep">Deep (Everything in focus)</option>
+                                    <option value="rack-focus">Rack Focus (Focus shift)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>Camera Brand/Style</label>
+                                <select id="cameraBrand">
+                                    <option value="arri">ARRI Alexa (Cinema)</option>
+                                    <option value="red">RED Camera (Digital Cinema)</option>
+                                    <option value="canon">Canon (DSLR/Mirrorless)</option>
+                                    <option value="sony">Sony (Professional)</option>
+                                    <option value="film">35mm Film Camera</option>
+                                    <option value="vintage">Vintage Camera</option>
+                                    <option value="smartphone">Smartphone (Modern)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Lens Type</label>
+                                <select id="lensType">
+                                    <option value="prime">Prime Lens (Fixed focal)</option>
+                                    <option value="zoom">Zoom Lens (Variable)</option>
+                                    <option value="macro">Macro Lens (Close-up)</option>
+                                    <option value="fisheye">Fisheye (Ultra wide)</option>
+                                    <option value="tilt-shift">Tilt-Shift (Selective focus)</option>
+                                    <option value="anamorphic">Anamorphic (Cinematic)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Professional Lighting Setup</label>
+                            <select id="lightingSetup">
+                                <option value="three-point">Three-Point Lighting (Key + Fill + Back)</option>
+                                <option value="key-fill">Key + Fill Light Only</option>
+                                <option value="rembrandt">Rembrandt Lighting (Triangle shadow)</option>
+                                <option value="butterfly">Butterfly/Paramount Lighting</option>
+                                <option value="split">Split Lighting (Half lit)</option>
+                                <option value="loop">Loop Lighting (Nose shadow loop)</option>
+                                <option value="broad">Broad Lighting (Wide side lit)</option>
+                                <option value="short">Short Lighting (Narrow side lit)</option>
+                                <option value="rim">Rim/Edge Lighting (Outline)</option>
+                                <option value="backlighting">Backlighting/Silhouette</option>
+                                <option value="clamshell">Clamshell (Top + Bottom)</option>
+                                <option value="beauty-dish">Beauty Dish Setup</option>
+                                <option value="softbox">Large Softbox Key</option>
+                                <option value="umbrella">Umbrella Lighting</option>
+                                <option value="ring-light">Ring Light Setup</option>
+                                <option value="practical">Practical Lighting Only</option>
+                                <option value="available">Available Light Only</option>
+                                <option value="mixed">Mixed Lighting Sources</option>
+                                <option value="gradient">Gradient Background Lighting</option>
+                                <option value="colored-gels">Colored Gel Lighting</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Color Grading Style</label>
+                            <select id="colorGrading">
+                                <option value="natural">Natural/Ungraded</option>
+                                <option value="teal-orange">Teal & Orange (Blockbuster)</option>
+                                <option value="desaturated">Desaturated/Bleach Bypass</option>
+                                <option value="vintage">Vintage Film Emulation</option>
+                                <option value="high-contrast">High Contrast B&W</option>
+                                <option value="log">LOG/Flat (Professional)</option>
+                                <option value="stylized">Stylized/Creative</option>
+                                <option value="warm-highlights">Warm Highlights/Cool Shadows</option>
+                                <option value="cool-highlights">Cool Highlights/Warm Shadows</option>
+                                <option value="sepia">Sepia Tone</option>
+                                <option value="cross-process">Cross Process</option>
+                                <option value="cyberpunk">Cyberpunk (Neon/Dark)</option>
+                                <option value="pastel">Pastel/Soft Colors</option>
+                                <option value="monochromatic">Monochromatic</option>
+                                <option value="split-toning">Split Toning</option>
+                                <option value="film-noir">Film Noir</option>
+                                <option value="technicolor">Technicolor</option>
+                                <option value="instagram">Instagram Filter Style</option>
+                                <option value="kodak">Kodak Film Stock</option>
+                                <option value="fuji">Fuji Film Stock</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="template-selector">
+                    <h3>📋 Quick Templates</h3>
+                    <div class="template-grid" id="templateGrid">
+                        <!-- Templates populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="quick-tips" id="quickTips">
+                    <h4>💡 Pro Tips</h4>
+                    <ul>
+                        <li>Be specific about emotions and expressions</li>
+                        <li>Mention lighting direction (side, back, front)</li>
+                        <li>Include camera movement for dynamic scenes</li>
+                        <li>Use negative prompts to avoid common issues</li>
+                        <li>Test different aspect ratios for your platform</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <button class="generate-btn" onclick="generatePrompt()">
+            ✨ Generate Professional Prompt
+        </button>
+        
+        <div class="output-section" id="outputSection" style="display: none;">
+            <div class="output-header">
+                <h3>Generated JSON Prompt</h3>
+                <div>
+                    <button class="copy-btn" onclick="copyToClipboard()">📋 Copy JSON</button>
+                    <button class="copy-btn" onclick="copyTextPrompt()" style="margin-left: 10px;">📝 Copy Text Only</button>
+                </div>
+            </div>
+            <div class="output-content" id="outputContent"></div>
+            
+            <div style="margin-top: 20px; padding: 15px; background: #2d3748; border-radius: 10px;">
+                <h4 style="color: #4299e1; margin-bottom: 10px;">🎯 Text-Only Prompt:</h4>
+                <div id="textOnlyOutput" style="color: #e2e8f0; font-family: Arial; line-height: 1.6;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Enhanced template definitions
+        const templates = {
+            video: [
+                {
+                    id: 'woman_fishing',
+                    name: '🎣 Woman Fishing',
+                    description: 'Lifestyle fishing scene on boat',
+                    config: {
+                        subject: 'young Indian woman, early 20s, fit athletic build, short springy curls',
+                        location: 'boat in sunny coastal bay with futuristic condominiums',
+                        mood: 'peaceful',
+                        visualStyle: 'lifestyle',
+                        cameraAngle: 'medium',
+                        cameraMovement: 'static',
+                        lightingStyle: 'natural'
+                    }
+                },
+                {
+                    id: 'dragon_cctv_video',
+                    name: '🐉 Dragon CCTV',
+                    description: 'Security footage of dragon encounter',
+                    config: {
+                        subject: 'bioluminescent dragon and nano-drakes swarm',
+                        location: 'abandoned terraforming yard with plasma mesh fencing',
+                        mood: 'mysterious',
+                        visualStyle: 'documentary',
+                        cameraAngle: 'wide',
+                        cameraMovement: 'static',
+                        lightingStyle: 'dramatic'
+                    }
+                },
+                {
+                    id: 'elevator_persons',
+                    name: '🏢 Elevator Encounter',
+                    description: 'Fashion comedy backstage scene',
+                    config: {
+                        subject: 'young Indian female model in jewelled pale-pink silk gown',
+                        location: 'backstage corridor with chrome elevator and pink LED strips',
+                        mood: 'playful',
+                        visualStyle: 'cinematic',
+                        cameraAngle: 'medium',
+                        cameraMovement: 'tracking',
+                        lightingStyle: 'studio'
+                    }
+                },
+                {
+                    id: 'autumn_wind_whirl',
+                    name: '🍂 Autumn Wind Whirl',
+                    description: 'Magical text formation with leaves',
+                    config: {
+                        subject: 'FAFE EMPIRE text formed from swirling autumn leaves',
+                        location: 'windy forest glade with fallen logs',
+                        mood: 'mysterious',
+                        visualStyle: 'artistic',
+                        cameraAngle: 'wide',
+                        cameraMovement: 'static',
+                        lightingStyle: 'natural'
+                    }
+                },
+                {
+                    id: 'dance_performance',
+                    name: '💃 Dance Performance',
+                    description: 'High-energy studio dance routine',
+                    config: {
+                        subject: 'charismatic hip-hop performer in holographic bodysuit',
+                        location: 'infinite white cyclorama studio',
+                        mood: 'energetic',
+                        visualStyle: 'commercial',
+                        cameraAngle: 'medium',
+                        cameraMovement: 'tracking',
+                        lightingStyle: 'studio'
+                    }
+                },
+                {
+                    id: 'beach_lifestyle',
+                    name: '🏖️ Beach Lifestyle',
+                    description: 'Casual beach scene with natural vibes',
+                    config: {
+                        subject: 'young woman in beach attire',
+                        location: 'tropical beach with white sand and turquoise water',
+                        mood: 'joyful',
+                        visualStyle: 'lifestyle',
+                        cameraAngle: 'full-body',
+                        cameraMovement: 'slow-pan',
+                        lightingStyle: 'golden-hour'
+                    }
+                }
+            ],
+            image: [
+                {
+                    id: 'portrait_lifestyle',
+                    name: '👤 Portrait Lifestyle',
+                    description: 'Casual portrait with natural lighting',
+                    config: {
+                        subject: 'young woman with natural expression',
+                        location: 'outdoor natural setting',
+                        mood: 'peaceful',
+                        visualStyle: 'lifestyle',
+                        lightingStyle: 'natural'
+                    }
+                },
+                {
+                    id: 'fashion_editorial',
+                    name: '👗 Fashion Editorial',
+                    description: 'High-fashion editorial style',
+                    config: {
+                        subject: 'fashion model in designer clothing',
+                        location: 'studio or urban environment',
+                        mood: 'dramatic',
+                        visualStyle: 'editorial',
+                        lightingStyle: 'studio'
+                    }
+                },
+                {
+                    id: 'beach_candid',
+                    name: '🌊 Beach Candid',
+                    description: 'Candid beach photography',
+                    config: {
+                        subject: 'person enjoying beach activities',
+                        location: 'sunny beach with ocean backdrop',
+                        mood: 'joyful',
+                        visualStyle: 'lifestyle',
+                        lightingStyle: 'golden-hour'
+                    }
+                },
+                {
+                    id: 'artistic_portrait',
+                    name: '🎨 Artistic Portrait',
+                    description: 'Creative artistic portrait',
+                    config: {
+                        subject: 'expressive portrait subject',
+                        location: 'creative environment',
+                        mood: 'mysterious',
+                        visualStyle: 'artistic',
+                        lightingStyle: 'dramatic'
+                    }
+                }
+            ]
+        };
+        
+        // Beginner-friendly tips based on skill level
+        const skillLevelTips = {
+            beginner: {
+                title: "✨ Beginner Tips",
+                tips: [
+                    "Start with simple, clear descriptions",
+                    "Use natural lighting for best results",
+                    "Choose 'medium shot' for balanced framing",
+                    "Try 'joyful' or 'peaceful' moods first",
+                    "Stick to 8-second videos to start"
+                ],
+                class: "beginner-tips"
+            },
+            intermediate: {
+                title: "📷 Photography Tips",
+                tips: [
+                    "Golden hour creates warm, flattering light",
+                    "f/2.8 aperture gives nice background blur",
+                    "85mm lens is perfect for portraits",
+                    "Use rule of thirds for composition",
+                    "Experiment with different camera angles"
+                ],
+                class: "quick-tips"
+            },
+            expert: {
+                title: "🎯 Expert Tips",
+                tips: [
+                    "Match focal length to desired perspective",
+                    "Consider color temperature for mood",
+                    "Use specific lighting ratios (3:1, 2:1)",
+                    "Plan camera movement for narrative",
+                    "Optimize for target AI model capabilities"
+                ],
+                class: "quick-tips"
+            }
+        };
+        
+        let currentMode = 'video';
+        let currentSkillLevel = 'beginner';
+        let selectedTemplate = null;
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            loadTemplates();
+            updateSkillLevel('beginner');
+            updateFormVisibility();
+        });
+        
+        function setupEventListeners() {
+            // Skill level switcher
+            document.querySelectorAll('.skill-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    updateSkillLevel(this.dataset.level);
+                });
+            });
+            
+            // Mode switcher
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    switchMode(this.dataset.mode);
+                });
+            });
+            
+            // Professional toggle
+            document.getElementById('professionalToggle').addEventListener('click', function() {
+                const options = document.getElementById('professionalOptions');
+                const isHidden = options.classList.contains('hidden');
+                options.classList.toggle('hidden');
+                this.textContent = isHidden ? '🎯 Hide Professional Settings' : '🎯 Show Professional Camera Settings';
+                this.classList.toggle('active', isHidden);
+            });
+        }
+        
+        function updateSkillLevel(level) {
+            currentSkillLevel = level;
+            
+            // Update button states
+            document.querySelectorAll('.skill-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.level === level);
+            });
+            
+            // Update tips
+            updateTips();
+            
+            // Show/hide professional options based on skill level
+            const professionalSection = document.getElementById('professionalOptions');
+            const professionalToggle = document.getElementById('professionalToggle');
+            
+            if (level === 'expert') {
+                professionalSection.classList.remove('hidden');
+                professionalToggle.style.display = 'none';
+            } else {
+                professionalSection.classList.add('hidden');
+                professionalToggle.style.display = 'block';
+                professionalToggle.textContent = '🎯 Show Professional Camera Settings';
+                professionalToggle.classList.remove('active');
+            }
+        }
+        
+        function updateTips() {
+            const tipsContainer = document.getElementById('quickTips');
+            const tipData = skillLevelTips[currentSkillLevel];
+            
+            tipsContainer.className = `quick-tips ${tipData.class}`;
+            tipsContainer.innerHTML = `
+                <h4>${tipData.title}</h4>
+                <ul>
+                    ${tipData.tips.map(tip => `<li>${tip}</li>`).join('')}
+                </ul>
+            `;
+        }
+        
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            
+            updateFormVisibility();
+            loadTemplates();
+        }
+        
+        function updateFormVisibility() {
+            // Show/hide mode-specific elements
+            const videoElements = ['videoDurationGroup', 'cameraMovementGroup', 'frameRateGroup'];
+            
+            videoElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.display = currentMode === 'video' ? 'block' : 'none';
+                }
+            });
+        }
+        
+        function loadTemplates() {
+            const templateGrid = document.getElementById('templateGrid');
+            templateGrid.innerHTML = '';
+            
+            templates[currentMode].forEach(template => {
+                const card = document.createElement('div');
+                card.className = 'template-card';
+                card.dataset.templateId = template.id;
+                card.innerHTML = `
+                    <h4>${template.name}</h4>
+                    <p>${template.description}</p>
+                `;
+                
+                card.addEventListener('click', () => selectTemplate(template));
+                templateGrid.appendChild(card);
+            });
+        }
+        
+        function selectTemplate(template) {
+            selectedTemplate = template;
+            
+            // Update UI
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.templateId === template.id);
+            });
+            
+            // Fill form with template values
+            const config = template.config;
+            document.getElementById('subject').value = config.subject || '';
+            document.getElementById('location').value = config.location || '';
+            
+            if (config.mood) document.getElementById('mood').value = config.mood;
+            if (config.visualStyle) document.getElementById('visualStyle').value = config.visualStyle;
+            if (config.cameraAngle) document.getElementById('cameraAngle').value = config.cameraAngle;
+            if (config.lightingStyle) document.getElementById('lightingStyle').value = config.lightingStyle;
+            
+            if (currentMode === 'video' && config.cameraMovement) {
+                document.getElementById('cameraMovement').value = config.cameraMovement;
+            }
+        }
+        
+        function generatePrompt() {
+            let prompt, textPrompt;
+            
+            if (currentMode === 'video') {
+                [prompt, textPrompt] = generateVideoPrompt();
+            } else {
+                [prompt, textPrompt] = generateImagePrompt();
+            }
+            
+            // Display JSON
+            document.getElementById('outputContent').textContent = JSON.stringify(prompt, null, 2);
+            
+            // Display text-only version
+            document.getElementById('textOnlyOutput').textContent = textPrompt;
+            
+            document.getElementById('outputSection').style.display = 'block';
+            document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function generateVideoPrompt() {
+            const aiModel = document.getElementById('aiModel').value;
+            const isVEO = aiModel === 'veo3';
+            
+            const prompt = {
+                description: document.getElementById('mainPrompt').value,
+                shot: {
+                    composition: document.getElementById('cameraAngle').value + ' shot',
+                    camera_motion: document.getElementById('cameraMovement').value,
+                    frame_rate: getCurrentValue('frameRate', '24fps'),
+                    aspect_ratio: document.getElementById('aspectRatio').value,
+                    lens: getCurrentValue('focalLength', '35mm'),
+                    depth_of_field: getCurrentValue('depthOfField', 'medium')
+                },
+                subject: {
+                    description: document.getElementById('subject').value,
+                    emotion: document.getElementById('mood').value,
+                    pose: 'natural, confident'
+                },
+                scene: {
+                    location: document.getElementById('location').value,
+                    lighting: {
+                        type: document.getElementById('lightingStyle').value,
+                        setup: getCurrentValue('lightingSetup', 'natural'),
+                        quality: 'professional, even'
+                    },
+                    environment_details: 'detailed, realistic'
+                },
+                visual_details: {
+                    primary_action: document.getElementById('mainPrompt').value,
+                    duration: document.getElementById('videoDuration').value,
+                    resolution: document.getElementById('qualityLevel').value.includes('4K') ? '4K' : 'HD',
+                    style: document.getElementById('visualStyle').value
+                },
+                cinematography: {
+                    camera_brand: getCurrentValue('cameraBrand', 'professional'),
+                    lens_type: getCurrentValue('lensType', 'prime'),
+                    aperture: getCurrentValue('aperture', 'f/2.8'),
+                    iso: getCurrentValue('iso', 'ISO 400'),
+                    lighting: document.getElementById('lightingStyle').value,
+                    color_grading: getCurrentValue('colorGrading', 'natural'),
+                    style: document.getElementById('visualStyle').value,
+                    tone: document.getElementById('mood').value
+                },
+                color_palette: {
+                    primary: document.getElementById('colorPalette').value,
+                    mood: document.getElementById('mood').value
+                },
+                audio: {
+                    ambient: 'natural environmental sounds',
+                    music: 'mood-appropriate background'
+                },
+                visual_rules: {
+                    target_model: aiModel,
+                    quality_level: document.getElementById('qualityLevel').value,
+                    prohibited_elements: getProhibitedElements()
+                }
+            };
+            
+            // Generate text-only version
+            const textPrompt = generateTextOnlyPrompt(prompt, 'video');
+            
+            // Remove empty fields
+            const cleanPrompt = JSON.parse(JSON.stringify(prompt, (key, value) => {
+                return value === '' ? undefined : value;
+            }));
+            
+            return [cleanPrompt, textPrompt];
+        }
+        
+        function generateImagePrompt() {
+            const prompt = {
+                prompt: document.getElementById('mainPrompt').value,
+                subject: document.getElementById('subject').value,
+                style: document.getElementById('visualStyle').value,
+                aspect_ratio: document.getElementById('aspectRatio').value,
+                negative_prompt: document.getElementById('negativePrompt').value,
+                camera: {
+                    focal_length: getCurrentValue('focalLength', '85mm'),
+                    aperture: getCurrentValue('aperture', 'f/2.8'),
+                    brand: getCurrentValue('cameraBrand', 'DSLR'),
+                    lens_type: getCurrentValue('lensType', 'prime'),
+                    iso: getCurrentValue('iso', 'ISO 400')
+                },
+                lighting: {
+                    type: document.getElementById('lightingStyle').value,
+                    setup: getCurrentValue('lightingSetup', 'natural'),
+                    quality: 'professional'
+                },
+                composition: {
+                    shot_type: document.getElementById('cameraAngle').value,
+                    depth_of_field: getCurrentValue('depthOfField', 'shallow')
+                },
+                environment: {
+                    location: document.getElementById('location').value,
+                    mood: document.getElementById('mood').value
+                },
+                color_grading: {
+                    palette: document.getElementById('colorPalette').value,
+                    style: getCurrentValue('colorGrading', 'natural'),
+                    mood: document.getElementById('mood').value
+                },
+                quality: {
+                    level: document.getElementById('qualityLevel').value,
+                    target_model: document.getElementById('aiModel').value
+                },
+                visual_rules: {
+                    prohibited_elements: getProhibitedElements()
+                }
+            };
+            
+            // Generate text-only version
+            const textPrompt = generateTextOnlyPrompt(prompt, 'image');
+            
+            // Remove empty fields
+            const cleanPrompt = JSON.parse(JSON.stringify(prompt, (key, value) => {
+                return value === '' ? undefined : value;
+            }));
+            
+            return [cleanPrompt, textPrompt];
+        }
+        
+        function generateTextOnlyPrompt(prompt, type) {
+            const subject = document.getElementById('subject').value;
+            const location = document.getElementById('location').value;
+            const mainPrompt = document.getElementById('mainPrompt').value;
+            const mood = document.getElementById('mood').value;
+            const lighting = document.getElementById('lightingStyle').value;
+            const style = document.getElementById('visualStyle').value;
+            const cameraAngle = document.getElementById('cameraAngle').value;
+            
+            let textPrompt = mainPrompt;
+            
+            if (subject) textPrompt += `. Subject: ${subject}`;
+            if (location) textPrompt += `. Location: ${location}`;
+            textPrompt += `. Mood: ${mood}, Style: ${style}`;
+            textPrompt += `. Lighting: ${lighting}, Shot: ${cameraAngle}`;
+            
+            if (type === 'video') {
+                const movement = document.getElementById('cameraMovement').value;
+                const duration = document.getElementById('videoDuration').value;
+                textPrompt += `. Camera: ${movement}, Duration: ${duration}`;
+            }
+            
+            const focal = getCurrentValue('focalLength', '');
+            const aperture = getCurrentValue('aperture', '');
+            if (focal || aperture) {
+                textPrompt += `. Camera settings: ${focal} ${aperture}`;
+            }
+            
+            const negative = document.getElementById('negativePrompt').value;
+            if (negative) {
+                textPrompt += `. Avoid: ${negative}`;
+            }
+            
+            return textPrompt;
+        }
+        
+        function getCurrentValue(id, defaultValue) {
+            const element = document.getElementById(id);
+            return element && !element.classList.contains('hidden') ? element.value : defaultValue;
+        }
+        
+        function getProhibitedElements() {
+            const negative = document.getElementById('negativePrompt').value;
+            const baseProhibited = [
+                'low quality',
+                'blurry',
+                'distorted anatomy',
+                'extra limbs',
+                'text overlays',
+                'watermarks'
+            ];
+            
+            if (negative) {
+                return baseProhibited.concat(negative.split(',').map(item => item.trim()));
+            }
+            
+            return baseProhibited;
+        }
+        
+        function copyToClipboard() {
+            const content = document.getElementById('outputContent').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                showCopySuccess('📋 JSON Copied!');
+            });
+        }
+        
+        function copyTextPrompt() {
+            const content = document.getElementById('textOnlyOutput').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                showCopySuccess('📝 Text Copied!');
+            });
+        }
+        
+        function showCopySuccess(message) {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = message;
+            btn.style.background = '#48bb78';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '#4299e1';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
