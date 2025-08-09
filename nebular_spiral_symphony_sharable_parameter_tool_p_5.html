@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nebular Spiral Symphony — Shareable Controller (Fixed)</title>
+  <style>
+    :root { --bg:#0a0a0f; --panel:#11131a; --text:#e8eaf1; --muted:#9aa3b2; --accent:#6cf; }
+    * { box-sizing: border-box; }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji"; }
+    #app { display:grid; grid-template-columns: 320px 1fr; grid-template-rows: 100vh; }
+    #panel { background:linear-gradient(180deg, #11131a, #0e1016); border-right:1px solid #1b1f2a; padding:16px; overflow:auto; }
+    #panel h1 { margin:0 0 8px; font-size:18px; letter-spacing:.2px; }
+    #panel .sub { color:var(--muted); font-size:12px; margin-bottom:12px; }
+    fieldset { border:1px solid #1b1f2a; border-radius:10px; padding:10px; margin:10px 0 14px; }
+    legend { padding:0 6px; color:#c7d2fe; font-weight:600; font-size:12px; }
+    label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:#c6d0e0; margin:6px 0; }
+    input[type="range"] { width: 56%; }
+    input[type="number"], select { width: 80px; background:#0b0d13; color:var(--text); border:1px solid #1b1f2a; border-radius:6px; padding:4px 6px; }
+    input[type="checkbox"] { transform: translateY(1px); }
+    .btn { appearance:none; background:#152033; color:#e6f0ff; border:1px solid #263149; padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; font-size:12px; }
+    .btn:hover { background:#1a2944; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .row > * { flex: 1 1 auto; }
+    textarea { width:100%; min-height:110px; background:#0b0d13; color:#e5ecff; border:1px solid #1b1f2a; border-radius:8px; padding:8px; }
+    small.help { color:#9aa3b2; display:block; margin-top:6px; }
+    #status { font-size:12px; color:#8ad; margin-top:8px; min-height:16px; }
+    #canvas-holder { position:relative; }
+    canvas { display:block; }
+    #overlay { position:absolute; top:8px; right:8px; background:rgba(0,0,0,.35); color:#dfe7ff; padding:6px 8px; border-radius:8px; font-size:12px; pointer-events:none; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid #293248; border-radius:999px; margin:2px; font-size:11px; color:#c7d2fe; }
+    details.testlog { margin-top:10px; border:1px solid #1b1f2a; border-radius:10px; padding:8px; }
+    details.testlog summary { cursor:pointer; color:#9bd; font-weight:600; }
+    ul.tests { margin:6px 0 0; padding-left:18px; font-size:12px; color:#b9c4d6; }
+    .pass { color:#8fe08f; }
+    .fail { color:#ff8f8f; }
+  </style>
+  <script>
+  (function(){
+    'use strict';
+
+    // One global namespace only (safe across hot reloads)
+    const API = (window.__nebular__ = window.__nebular__ || {});
+
+    // --- Default Config (mirrors original JSON; UI-friendly keys kept) ---
+    const DEFAULT_CFG = {
+      prompt_type: "generative_art_sketch",
+      title: "Nebular Spiral Symphony",
+      summary: "Interactive p5.js + p5.sound spiral star-field with ambient soundtrack.",
+      libraries: {
+        p5: "https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js",
+        p5_sound: "https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/addons/p5.sound.min.js"
+      },
+      canvas: {
+        pixelDensity: 2,
+        colorMode: "HSB,360,100,100,100",
+        blendCycle: [
+          { mode: "BLEND", fadeRect: { fill: [0,0,0,4] } },
+          { mode: "ADD", draw: "particles" }
+        ]
+      },
+      flow_field: {
+        type: "polar_spiral",
+        particles: {
+          count: { desktop: 1000, mobile: 600 },
+          size: [2, 5],
+          physics: { maxSpeed: 2.5, forceMult: 0.12 },
+          initialPosition: "random(radius<min(width,height)/2)",
+          motion: {
+            radiusIncrement: 0.15,
+            angleIncrement: 0.04,
+            noiseScale: 0.003,
+            octaves: 2,
+            zDrift: 0.003,
+            zSinAmp: 0.001,
+            zSinFreq: 0.0008
+          }
+        }
+      },
+      color: {
+        palette: "triadic",
+        baseHueSpeed: 0.07,
+        saturation: 85,
+        value: 100,
+        alpha: 18
+      },
+      audio: {
+        enabled: true,
+        oscillators: [
+          { wave: "sine", note: "C4", amp: 0.05, pan: -0.3 },
+          { wave: "triangle", note: "E4", amp: 0.05, pan: 0.0 },
+          { wave: "sine", note: "G4", amp: 0.05, pan: 0.3 }
+        ],
+        noiseBed: { type: "pink", amp: 0.03 },
+        effects: { reverb: { time: 6, decay: 5 } },
+        pattern: { intervalSec: 5, rampSec: 2, scale: "Cmaj", octaveSpread: 1 }
+      },
+      interactivity: {
+        swirlBoost: { factor: 2.0, durationFrames: 120 }
+      },
+      performance: {
+        adaptiveParticles: true
+      }
+    };
+
+    // --- Share/Load helpers ---
+    const encodeCfg = (cfg)=> btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
+    const decodeCfg = (str)=> JSON.parse(decodeURIComponent(escape(atob(str))));
+    function getCfgFromURL(){
+      const u = new URL(location.href);
+      const c = u.searchParams.get('cfg') || u.hash.replace(/^#cfg=/,'');
+      if(!c) return null;
+      try { return decodeCfg(c); } catch(e) { console.warn('Bad cfg in URL', e); return null; }
+    }
+
+    // --- Local (non-global) config (FIX: no duplicate global "CFG") ---
+    let cfg = getCfgFromURL() || structuredClone(DEFAULT_CFG);
+
+    // Make current cfg visible from devtools for debugging only
+    API.getConfig = () => cfg;
+
+    // --- UI Wiring ---
+    window.addEventListener('DOMContentLoaded', () => {
+      // Load libraries once, then boot
+      function loadScriptsAndBoot(){
+        if(window.p5 && window.p5.prototype){
+          // p5 already present
+          if(window.p5.SoundFile || window.p5.prototype.getAudioContext){
+            bootSketch();
+          } else {
+            const p5snd = document.createElement('script'); p5snd.src = cfg.libraries.p5_sound; document.head.appendChild(p5snd);
+            p5snd.onload = bootSketch;
+          }
+          return;
+        }
+        const p5s = document.createElement('script'); p5s.src = cfg.libraries.p5; document.head.appendChild(p5s);
+        p5s.onload = () => {
+          const p5snd = document.createElement('script'); p5snd.src = cfg.libraries.p5_sound; document.head.appendChild(p5snd);
+          p5snd.onload = bootSketch;
+        };
+      }
+
+      // Controls binding
+      const $ = (id)=> document.getElementById(id);
+      const bind = (id, get, set) => {
+        const el = $(id);
+        const refl = () => set(el);
+        el?.addEventListener('input', refl);
+        const v = get(); if(el){ if(el.type==='checkbox') el.checked = !!v; else el.value = v; }
+      };
+
+      // Particle controls
+      bind('countDesktop', () => cfg.flow_field.particles.count.desktop, el => { cfg.flow_field.particles.count.desktop = +el.value; API.rebuildParticles?.(); syncURL(); });
+      bind('countMobile',  () => cfg.flow_field.particles.count.mobile,  el => { cfg.flow_field.particles.count.mobile  = +el.value; API.rebuildParticles?.(); syncURL(); });
+      bind('sizeMin',      () => cfg.flow_field.particles.size[0],       el => { cfg.flow_field.particles.size[0]     = +el.value; syncURL(); });
+      bind('sizeMax',      () => cfg.flow_field.particles.size[1],       el => { cfg.flow_field.particles.size[1]     = +el.value; syncURL(); });
+      bind('maxSpeed',     () => cfg.flow_field.particles.physics.maxSpeed, el => { cfg.flow_field.particles.physics.maxSpeed = +el.value; syncURL(); });
+      bind('forceMult',    () => cfg.flow_field.particles.physics.forceMult, el => { cfg.flow_field.particles.physics.forceMult = +el.value; syncURL(); });
+      bind('rInc',         () => cfg.flow_field.particles.motion.radiusIncrement, el => { cfg.flow_field.particles.motion.radiusIncrement = +el.value; syncURL(); });
+      bind('aInc',         () => cfg.flow_field.particles.motion.angleIncrement,  el => { cfg.flow_field.particles.motion.angleIncrement  = +el.value; syncURL(); });
+      bind('noiseScale',   () => cfg.flow_field.particles.motion.noiseScale,      el => { cfg.flow_field.particles.motion.noiseScale      = +el.value; syncURL(); });
+      bind('octaves',      () => cfg.flow_field.particles.motion.octaves,         el => { cfg.flow_field.particles.motion.octaves         = +el.value; syncURL(); });
+
+      // Color controls
+      bind('hueSpeed',     () => cfg.color.baseHueSpeed, el => { cfg.color.baseHueSpeed = +el.value; syncURL(); });
+      bind('sat',          () => cfg.color.saturation,   el => { cfg.color.saturation   = +el.value; syncURL(); });
+      bind('val',          () => cfg.color.value,        el => { cfg.color.value        = +el.value; syncURL(); });
+      bind('alpha',        () => cfg.color.alpha,        el => { cfg.color.alpha        = +el.value; syncURL(); });
+
+      // Audio controls
+      bind('audioEnabled', () => cfg.audio.enabled, el => { cfg.audio.enabled = el.checked; API.updateAudioEnabled?.(); syncURL(); });
+      bind('retuneInt',    () => cfg.audio.pattern.intervalSec, el => { cfg.audio.pattern.intervalSec = +el.value; API.resetRetuneTimer?.(); syncURL(); });
+      bind('rampSec',      () => cfg.audio.pattern.rampSec,     el => { cfg.audio.pattern.rampSec     = +el.value; syncURL(); });
+      bind('noiseAmp',     () => cfg.audio.noiseBed.amp,        el => { cfg.audio.noiseBed.amp        = +el.value; API.applyAudioGains?.(); syncURL(); });
+      bind('reverbTime',   () => cfg.audio.effects.reverb.time, el => { cfg.audio.effects.reverb.time = +el.value; API.applyReverb?.(); syncURL(); });
+      bind('reverbDecay',  () => cfg.audio.effects.reverb.decay,el => { cfg.audio.effects.reverb.decay= +el.value; API.applyReverb?.(); syncURL(); });
+
+      // Interactivity
+      bind('boostFactor',  () => cfg.interactivity.swirlBoost.factor,        el => { cfg.interactivity.swirlBoost.factor = +el.value; syncURL(); });
+      bind('boostFrames',  () => cfg.interactivity.swirlBoost.durationFrames, el => { cfg.interactivity.swirlBoost.durationFrames = +el.value; syncURL(); });
+
+      $('copyLink').addEventListener('click', copyShareURL);
+      $('reset').addEventListener('click', () => { cfg = structuredClone(DEFAULT_CFG); applyUIFromCfg(); API.rebuildParticles?.(); syncURL(); status('Reset to defaults.'); });
+      $('export').addEventListener('click', () => { $('jsonBox').value = JSON.stringify(cfg, null, 2); });
+      $('import').addEventListener('click', () => {
+        try { const c = JSON.parse($('jsonBox').value); cfg = c; applyUIFromCfg(); API.rebuildParticles?.(); syncURL(); status('Imported config.'); }
+        catch (e) { status('Import failed: ' + e.message); }
+      });
+
+      function applyUIFromCfg(){
+        const set = (id, val) => { const el = $(id); if(!el) return; if(el.type==='checkbox') el.checked = !!val; else el.value = val; };
+        set('countDesktop', cfg.flow_field.particles.count.desktop);
+        set('countMobile',  cfg.flow_field.particles.count.mobile);
+        set('sizeMin', cfg.flow_field.particles.size[0]);
+        set('sizeMax', cfg.flow_field.particles.size[1]);
+        set('maxSpeed', cfg.flow_field.particles.physics.maxSpeed);
+        set('forceMult', cfg.flow_field.particles.physics.forceMult);
+        set('rInc', cfg.flow_field.particles.motion.radiusIncrement);
+        set('aInc', cfg.flow_field.particles.motion.angleIncrement);
+        set('noiseScale', cfg.flow_field.particles.motion.noiseScale);
+        set('octaves', cfg.flow_field.particles.motion.octaves);
+        set('hueSpeed', cfg.color.baseHueSpeed);
+        set('sat', cfg.color.saturation);
+        set('val', cfg.color.value);
+        set('alpha', cfg.color.alpha);
+        set('audioEnabled', cfg.audio.enabled);
+        set('retuneInt', cfg.audio.pattern.intervalSec);
+        set('rampSec', cfg.audio.pattern.rampSec);
+        set('noiseAmp', cfg.audio.noiseBed.amp);
+        set('reverbTime', cfg.audio.effects.reverb.time);
+        set('reverbDecay', cfg.audio.effects.reverb.decay);
+        set('boostFactor', cfg.interactivity.swirlBoost.factor);
+        set('boostFrames', cfg.interactivity.swirlBoost.durationFrames);
+      }
+
+      function syncURL(){
+        const encoded = encodeCfg(cfg);
+        const u = new URL(location.href);
+        u.searchParams.set('cfg', encoded);
+        history.replaceState(null, '', u.toString());
+      }
+
+      function copyShareURL(){
+        const u = location.href;
+        navigator.clipboard.writeText(u).then(()=>status('Share link copied!'),()=>status('Copy failed.'));
+      }
+
+      function status(msg){ const s = document.getElementById('status'); if(s){ s.textContent = msg; setTimeout(()=>{ s.textContent=''; }, 2200);} }
+
+      // Expose minimal API for sketch to call/receive
+      Object.assign(API, { status, syncURL });
+
+      loadScriptsAndBoot();
+      applyUIFromCfg();
+      runTests();
+    });
+
+    // --- p5 sketch (entirely inside IIFE; no global function names) ---
+    function bootSketch(){
+      new p5((p)=>{
+        const USE_MOBILE = window.devicePixelRatio < 2 && cfg.performance.adaptiveParticles;
+        let particles = [];
+        let maxR, center;
+        let zOff = 0;
+        let boostUntil = 0;
+
+        // audio
+        let oscNodes = [], noiseNode = null, reverb = null, retuneTimer = null;
+
+        function fBm(x,y,z,octaves,scale){
+          let amp = 1, freq = 1, sum = 0, norm = 0;
+          for(let i=0;i<octaves;i++){
+            sum  += amp * p.noise(x*scale*freq, y*scale*freq, z*freq);
+            norm += amp; amp *= 0.5; freq *= 2.0;
+          }
+          return sum / norm;
+        }
+
+        function resetParticle(pt){
+          const r = Math.random()*maxR*0.5; // within half of min dimension
+          const a = Math.random()*Math.PI*2;
+          pt.r = r; pt.a = a;
+          pt.x = center.x + Math.cos(a)*r;
+          pt.y = center.y + Math.sin(a)*r;
+          pt.vx = 0; pt.vy = 0;
+          pt.size = p.random(cfg.flow_field.particles.size[0], cfg.flow_field.particles.size[1]);
+        }
+
+        function rebuildParticles(){
+          const useMobile = window.devicePixelRatio < 2 && cfg.performance.adaptiveParticles;
+          const cnt = useMobile ? cfg.flow_field.particles.count.mobile : cfg.flow_field.particles.count.desktop;
+          particles = new Array(cnt).fill(0).map(()=>({}));
+          for(let i=0;i<particles.length;i++) resetParticle(particles[i]);
+        }
+
+        function retuneAll(){
+          const scaleNotes = { Cmaj:["C","D","E","F","G","A","B"] };
+          const pick = (arr)=>arr[Math.floor(Math.random()*arr.length)];
+          const baseOct = 4;
+          oscNodes.forEach(osc=>{
+            let deg = pick(scaleNotes[cfg.audio.pattern.scale]);
+            let octShift = Math.floor((Math.random()*((cfg.audio.pattern.octaveSpread*2)+1)) - cfg.audio.pattern.octaveSpread);
+            const note = deg + (baseOct + octShift);
+            const freqTarget = midiToFreq(noteToMidi(note));
+            rampFreq(osc, freqTarget, cfg.audio.pattern.rampSec);
+          });
+        }
+
+        function noteToMidi(n){
+          const names = {C:0, 'C#':1, Db:1, D:2, 'D#':3, Eb:3, E:4, F:5, 'F#':6, Gb:6, G:7, 'G#':8, Ab:8, A:9, 'A#':10, Bb:10, B:11};
+          const m = String(n).match(/^([A-G](?:#|b)?)(-?\d)$/); if(!m) return 60; // default C4
+          const [_, name, oct] = m; return 12*(+oct+1) + names[name];
+        }
+        function midiToFreq(m){ return 440 * Math.pow(2, (m-69)/12); }
+        function rampFreq(osc, target, seconds){
+          if(osc.freq && osc.freq instanceof Function){
+            osc.freq(target, seconds);
+          } else if(osc.frequency && osc.frequency.setTargetAtTime){
+            const ctx = getAudioContext();
+            osc.frequency.setTargetAtTime(target, ctx.currentTime, Math.max(0.01, seconds/5));
+          }
+        }
+
+        function buildAudio(){
+          if(API._audioBuilt) return;
+          oscNodes = cfg.audio.oscillators.map(spec=>{
+            const o = new p5.Oscillator(spec.wave);
+            o.amp(0);
+            o.start();
+            if(typeof o.pan === 'function') o.pan(spec.pan || 0);
+            o.freq(midiToFreq(noteToMidi(spec.note)));
+            return o;
+          });
+          noiseNode = new p5.Noise(cfg.audio.noiseBed.type||'pink');
+          noiseNode.amp(0);
+          noiseNode.start();
+          reverb = new p5.Reverb();
+          applyReverb();
+          oscNodes.forEach(o=>reverb.process(o));
+          reverb.process(noiseNode);
+          applyAudioGains();
+          resetRetuneTimer();
+          API._audioBuilt = true;
+        }
+
+        function applyReverb(){ if(!reverb) return; reverb.set(cfg.audio.effects.reverb.time, cfg.audio.effects.reverb.decay); }
+        function applyAudioGains(){
+          if(!noiseNode || !oscNodes.length) return;
+          noiseNode.amp(cfg.audio.noiseBed.amp, 0.5);
+          const per = cfg.audio.oscillators;
+          for(let i=0;i<oscNodes.length;i++){
+            const amp = (per[i]?.amp ?? 0.05) * (cfg.audio.enabled ? 1 : 0);
+            oscNodes[i].amp(amp, 0.5);
+          }
+        }
+        function updateAudioEnabled(){
+          if(!oscNodes.length || !noiseNode) return;
+          const tgt = cfg.audio.enabled ? 1 : 0;
+          noiseNode.amp(cfg.audio.noiseBed.amp * tgt, 0.5);
+          oscNodes.forEach((o,i)=>o.amp((cfg.audio.oscillators[i]?.amp ?? 0.05) * tgt, 0.5));
+        }
+        function resetRetuneTimer(){ if(retuneTimer) clearInterval(retuneTimer); retuneTimer = setInterval(()=>{ if(cfg.audio.enabled) retuneAll(); }, Math.max(1, cfg.audio.pattern.intervalSec)*1000); }
+
+        // Publish sketch-side functions to the namespace (no globals)
+        Object.assign(API, { rebuildParticles, applyReverb, applyAudioGains, updateAudioEnabled, resetRetuneTimer });
+
+        function spiralForce(px,py){
+          const cx = center.x, cy = center.y;
+          const dx = px - cx, dy = py - cy;
+          const r = Math.sqrt(dx*dx + dy*dy) + 1e-6;
+          const a = Math.atan2(dy, dx);
+          const m = cfg.flow_field.particles.motion;
+          const ns = fBm(px, py, zOff, m.octaves, m.noiseScale);
+          const boost = (p.frameCount < boostUntil) ? cfg.interactivity.swirlBoost.factor : 1.0;
+          const dr = (m.radiusIncrement + (ns-0.5)*0.6) * boost;
+          const da = (m.angleIncrement  + (ns-0.5)*0.2) * boost;
+          const newR = r + dr;
+          const newA = a + da;
+          const tx = cx + Math.cos(newA)*newR;
+          const ty = cy + Math.sin(newA)*newR;
+          return { fx: (tx-px)*cfg.flow_field.particles.physics.forceMult, fy: (ty-py)*cfg.flow_field.particles.physics.forceMult };
+        }
+
+        function colorFor(i){
+          const hBase = (p.frameCount * cfg.color.baseHueSpeed) % 360;
+          const h = (hBase + (i%3)*120) % 360;
+          return [h, cfg.color.saturation, cfg.color.value, cfg.color.alpha];
+        }
+
+        p.setup = function(){
+          const holder = document.getElementById('canvas-holder');
+          const cnv = p.createCanvas(window.innerWidth - 320, window.innerHeight);
+          cnv.parent(holder);
+          p.pixelDensity(cfg.canvas.pixelDensity);
+          p.colorMode(p.HSB,360,100,100,100);
+          center = { x:p.width/2, y:p.height/2 };
+          maxR = Math.min(p.width, p.height)/2;
+          rebuildParticles();
+          buildAudio();
+        };
+
+        function repaintFade(){
+          p.blendMode(p.BLEND);
+          const fr = cfg.canvas.blendCycle[0].fadeRect.fill;
+          p.noStroke(); p.fill(fr[0],fr[1],fr[2],fr[3]);
+          p.rect(0,0,p.width,p.height);
+        }
+
+        p.draw = function(){
+          const m = cfg.flow_field.particles.motion;
+          zOff += (m.zDrift + Math.sin(p.frameCount * m.zSinFreq) * m.zSinAmp);
+          repaintFade();
+          p.blendMode(p.ADD);
+          p.noFill();
+          for(let i=0;i<particles.length;i++){
+            const pt = particles[i];
+            const {fx,fy} = spiralForce(pt.x, pt.y);
+            pt.vx = (pt.vx + fx);
+            pt.vy = (pt.vy + fy);
+            const spd = Math.hypot(pt.vx, pt.vy);
+            const maxS = cfg.flow_field.particles.physics.maxSpeed;
+            if(spd > maxS){ pt.vx *= maxS/spd; pt.vy *= maxS/spd; }
+            const nx = pt.x + pt.vx;
+            const ny = pt.y + pt.vy;
+            p.stroke(...colorFor(i));
+            p.strokeWeight(pt.size);
+            p.line(pt.x, pt.y, nx, ny);
+            pt.x = nx; pt.y = ny;
+            const dx = pt.x - center.x, dy = pt.y - center.y;
+            const rr = Math.sqrt(dx*dx + dy*dy);
+            if(rr > maxR*1.2){ resetParticle(pt); }
+          }
+          const ov = document.getElementById('overlay');
+          if(ov){ ov.innerHTML = `<span class="pill">${particles.length} particles</span><span class="pill">Audio ${cfg.audio.enabled? 'on':'off'}</span>`; }
+        };
+
+        p.mousePressed = p.touchStarted = function(){
+          try { const ctx = getAudioContext(); if (ctx.state !== 'running') ctx.resume(); } catch(e){}
+          if(cfg.audio.enabled) buildAudio();
+          boostUntil = p.frameCount + cfg.interactivity.swirlBoost.durationFrames;
+        };
+
+        p.windowResized = function(){
+          p.resizeCanvas(window.innerWidth - 320, window.innerHeight);
+          center = { x:p.width/2, y:p.height/2 };
+          maxR = Math.min(p.width, p.height)/2;
+          rebuildParticles();
+        };
+      });
+    }
+
+    // --- Minimal runtime tests (appear under the sidebar) ---
+    function runTests(){
+      const results = [];
+      function ok(name, pass, info=''){ results.push({name, pass, info}); }
+      try {
+        // 1) Roundtrip encode/decode
+        const round = decodeCfg(encodeCfg(DEFAULT_CFG));
+        ok('encode/decode roundtrip equals shape', JSON.stringify(Object.keys(DEFAULT_CFG))===JSON.stringify(Object.keys(round)));
+
+        // 2) No global CFG or bootSketch identifiers (prevents duplicate-var errors)
+        ok('no global CFG', typeof window.CFG === 'undefined');
+        ok('no global bootSketch', typeof window.bootSketch === 'undefined');
+
+        // 3) URL sync
+        const before = new URL(location.href).toString();
+        const u = new URL(before); u.searchParams.set('cfg', encodeCfg(DEFAULT_CFG));
+        ok('can set cfg in URL', u.searchParams.get('cfg')?.length > 10);
+      } catch(e){ ok('tests crashed', false, e.message); }
+
+      // Render to UI
+      const panel = document.getElementById('panel');
+      if(!panel) return;
+      const el = document.createElement('details'); el.className='testlog'; el.open = false;
+      el.innerHTML = `<summary>Test Results</summary><ul class="tests">${results.map(r=>`<li class="${r.pass?'pass':'fail'}">${r.pass?'✔':'✖'} ${r.name}${r.info? ' — '+r.info: ''}</li>`).join('')}</ul>`;
+      panel.appendChild(el);
+    }
+
+  })();
+  </script>
+</head>
+<body>
+  <div id="app">
+    <aside id="panel">
+      <h1>Nebular Spiral Symphony</h1>
+      <div class="sub">Tune parameters, then share via link. Click canvas to start audio + swirl boost.</div>
+
+      <fieldset>
+        <legend>Particles</legend>
+        <label>Desktop count <input id="countDesktop" type="number" min="100" max="10000" step="50" /></label>
+        <label>Mobile count <input id="countMobile" type="number" min="100" max="10000" step="50" /></label>
+        <label>Size min <input id="sizeMin" type="number" min="0.1" max="20" step="0.1" /></label>
+        <label>Size max <input id="sizeMax" type="number" min="0.1" max="20" step="0.1" /></label>
+        <label>Max speed <input id="maxSpeed" type="number" min="0.1" max="20" step="0.1" /></label>
+        <label>Force mult <input id="forceMult" type="number" min="0.01" max="1" step="0.01" /></label>
+        <label>Radius inc <input id="rInc" type="number" min="0" max="2" step="0.01" /></label>
+        <label>Angle inc <input id="aInc" type="number" min="0" max="0.5" step="0.001" /></label>
+        <label>Noise scale <input id="noiseScale" type="number" min="0.0001" max="0.02" step="0.0001" /></label>
+        <label>Octaves <input id="octaves" type="number" min="1" max="6" step="1" /></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Color</legend>
+        <label>Hue speed <input id="hueSpeed" type="number" min="0" max="1" step="0.001" /></label>
+        <label>Saturation <input id="sat" type="number" min="0" max="100" step="1" /></label>
+        <label>Value <input id="val" type="number" min="0" max="100" step="1" /></label>
+        <label>Alpha <input id="alpha" type="number" min="1" max="100" step="1" /></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Audio</legend>
+        <label>Enabled <input id="audioEnabled" type="checkbox" /></label>
+        <label>Retune interval (s) <input id="retuneInt" type="number" min="1" max="60" step="1" /></label>
+        <label>Ramp (s) <input id="rampSec" type="number" min="0" max="10" step="0.1" /></label>
+        <label>Noise amp <input id="noiseAmp" type="number" min="0" max="0.5" step="0.005" /></label>
+        <label>Reverb time <input id="reverbTime" type="number" min="0" max="12" step="0.1" /></label>
+        <label>Reverb decay <input id="reverbDecay" type="number" min="0" max="12" step="0.1" /></label>
+        <small class="help">Click the canvas once to allow audio (browser gesture requirement).</small>
+      </fieldset>
+
+      <fieldset>
+        <legend>Interactivity</legend>
+        <label>Boost factor <input id="boostFactor" type="number" min="1" max="6" step="0.1" /></label>
+        <label>Boost frames <input id="boostFrames" type="number" min="1" max="600" step="1" /></label>
+      </fieldset>
+
+      <div class="row">
+        <button id="copyLink" class="btn">Copy Share Link</button>
+        <button id="reset" class="btn">Reset</button>
+      </div>
+
+      <fieldset>
+        <legend>Import / Export JSON</legend>
+        <textarea id="jsonBox" placeholder="Paste config JSON here or click Export to view current settings…"></textarea>
+        <div class="row">
+          <button id="export" class="btn">Export</button>
+          <button id="import" class="btn">Import</button>
+        </div>
+      </fieldset>
+
+      <div id="status"></div>
+      <small class="help">Tip: The URL updates as you tweak. Share it so others get the exact same visuals + audio.</small>
+    </aside>
+
+    <main id="canvas-holder">
+      <div id="overlay"></div>
+    </main>
+  </div>
+</body>
+</html>
