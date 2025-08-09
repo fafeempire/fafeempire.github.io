@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FAFE EMPIRE® AI Quick ToolKit</title>
+  <meta name="description" content="FAFE EMPIRE® AI Quick ToolKit — fast, free, and shareable tools for prompts, visuals, and generative experiments." />
+  <meta name="theme-color" content="#6d28d9" />
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:title" content="FAFE EMPIRE® AI Quick ToolKit" />
+  <meta property="og:description" content="Two starter tools: JSON Prompt Builder & Nebular Spiral Symphony Controller." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="" id="og-url" />
+  <meta property="og:image" content="" id="og-image" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <style>
+    :root{
+      --bg:#0b0712;        /* deep purple/black */
+      --bg2:#120a1f;       /* layer */
+      --grad1:#6d28d9;     /* purple */
+      --grad2:#a855f7;     /* violet */
+      --grad3:#22d3ee;     /* cyan accent */
+      --text:#eef2ff;      /* near-white */
+      --muted:#b9b5c9;     /* soft gray */
+      --card:#140e22;      /* card bg */
+      --stroke:#261a3e;    /* borders */
+      --glow:0 0 30px rgba(168,85,247,.25), 0 0 60px rgba(34,211,238,.15);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Inter, Roboto, "Helvetica Neue", Arial;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(109,40,217,.25), transparent 60%),
+        radial-gradient(1000px 600px at 110% 10%, rgba(34,211,238,.18), transparent 60%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      overflow-x:hidden;
+    }
+    header{
+      position:relative; padding:48px 20px 24px; text-align:center;
+    }
+    .brand{
+      display:inline-flex; align-items:center; gap:12px; padding:10px 14px; border:1px solid var(--stroke); border-radius:999px; background:rgba(255,255,255,.03);
+    }
+    .brand .dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--grad2),var(--grad3));box-shadow:var(--glow)}
+    h1{margin:16px 0 10px; font-size: clamp(28px, 4vw, 48px); letter-spacing:.3px;}
+    .subtitle{max-width:820px;margin:0 auto;color:var(--muted);line-height:1.5}
+
+    .actions{margin-top:22px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+    .btn{
+      --p:linear-gradient(135deg,var(--grad1),var(--grad2));
+      display:inline-flex; align-items:center; gap:10px; padding:12px 16px; border-radius:14px; border:1px solid var(--stroke); background:rgba(255,255,255,.04); color:var(--text); text-decoration:none; font-weight:700; letter-spacing:.2px; box-shadow:var(--glow); transition:transform .12s ease, box-shadow .2s ease, background .2s;
+    }
+    .btn.primary{ background:var(--p); }
+    .btn:hover{ transform: translateY(-1px); box-shadow:0 8px 30px rgba(168,85,247,.25), 0 0 0 1px rgba(168,85,247,.25);}    
+
+    main{ padding: 24px 20px 60px; }
+    .grid{
+      max-width:1100px; margin:0 auto; display:grid; gap:18px; grid-template-columns: repeat(12, 1fr);
+    }
+    .card{
+      grid-column: span 12; background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02)); border:1px solid var(--stroke); border-radius:18px; overflow:hidden;
+      display:grid; grid-template-columns: 1fr 280px; min-height: 180px; position:relative;
+    }
+    .card::after{content:""; position:absolute; inset:0; pointer-events:none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02), var(--glow);}    
+    .card .content{ padding:18px 18px 18px 20px; }
+    .card h2{ margin:6px 0 6px; font-size: clamp(20px, 2.5vw, 28px); }
+    .meta{ color:var(--muted); font-size:14px; }
+    .cta-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .thumb{
+      background: radial-gradient(120px 90px at 70% 20%, rgba(168,85,247,.3), transparent 60%),
+                 radial-gradient(90px 60px at 30% 70%, rgba(34,211,238,.25), transparent 60%),
+                 linear-gradient(180deg, #0e0820, #100b22);
+      border-left:1px solid var(--stroke); display:flex; align-items:center; justify-content:center;
+    }
+    .thumb .badge{ border:1px solid var(--stroke); background:rgba(255,255,255,.06); padding:8px 10px; border-radius:10px; font-size:12px; color:#dbeafe; }
+
+    /* Responsive */
+    @media (max-width: 880px){ .card{ grid-template-columns: 1fr; } .thumb{ min-height:120px; order:-1; } }
+
+    footer{ max-width:1100px; margin:40px auto 0; padding:16px 12px; color:var(--muted); border-top:1px solid var(--stroke); text-align:center; font-size:13px; }
+    .tiny{font-size:12px; opacity:.9}
+
+    /* Utilities */
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px; border:1px solid var(--stroke); color:#d1c7ff; }
+    .sep{opacity:.4; margin:0 6px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand" aria-label="FAFE EMPIRE brand">
+      <span class="dot" aria-hidden="true"></span>
+      <strong>FAFE EMPIRE®</strong>
+    </div>
+    <h1>AI Quick ToolKit</h1>
+    <p class="subtitle">A fast, purple-forward home for small, useful tools. Starter set includes a <strong>JSON Prompt Builder</strong> and the <strong>Nebular Spiral Symphony Controller</strong>. Everything is shareable and GitHub Pages–friendly.</p>
+    <div class="actions">
+      <a class="btn primary" id="shareX" href="#" target="_blank" rel="noopener">⚡ Post this toolkit on X</a>
+      <a class="btn" href="#tools">🧰 Browse Tools</a>
+      <span class="pill">v1.0<span class="sep">•</span><span id="buildDate"></span></span>
+    </div>
+  </header>
+
+  <main id="tools">
+    <div class="grid">
+
+      <!-- Tool 1: JSON Prompt Builder -->
+      <section class="card" aria-labelledby="t1-title">
+        <div class="content">
+          <div class="meta">Tool • Builder</div>
+          <h2 id="t1-title">JSON Prompt Builder</h2>
+          <p class="subtitle">Point-and-click fields for video/image prompts. Exports clean JSON and a text-only prompt. Beginner → Pro toggles, camera controls, and negative prompts included.</p>
+          <div class="cta-row">
+            <a class="btn primary" href="json_tool.html">Open json_tool.html</a>
+            <a class="btn" id="shareT1" href="#" target="_blank" rel="noopener">Share on X</a>
+          </div>
+        </div>
+        <div class="thumb">
+          <span class="badge">JSON • VEO • Grok • Runway</span>
+        </div>
+      </section>
+
+      <!-- Tool 2: Nebular Spiral Symphony Controller -->
+      <section class="card" aria-labelledby="t2-title">
+        <div class="content">
+          <div class="meta">Tool • Interactive Visual</div>
+          <h2 id="t2-title">Nebular Spiral Symphony — Shareable Controller</h2>
+          <p class="subtitle">Interactive p5.js spiral star‑field with ambient sound. Tweak particles, color, and audio; share your settings via URL automatically.</p>
+          <div class="cta-row">
+            <a class="btn primary" href="nebular_spiral_symphony_sharable_parameter_tool_p_5.html">Launch nebular_spiral_symphony_…</a>
+            <a class="btn" id="shareT2" href="#" target="_blank" rel="noopener">Share on X</a>
+          </div>
+        </div>
+        <div class="thumb">
+          <span class="badge">p5.js • Audio • Share Link</span>
+        </div>
+      </section>
+
+    </div>
+
+    <footer>
+      <div>© <span id="year"></span> FAFE EMPIRE®. All rights reserved. Toolkit shipped for GitHub Pages. </div>
+      <div class="tiny">Tip: Rename your existing generator page to <code>json_tool.html</code> in this repo. Leave this file as <code>index.html</code>.</div>
+    </footer>
+  </main>
+
+  <script>
+    // Build date & year
+    (function(){
+      const now = new Date();
+      document.getElementById('year').textContent = now.getFullYear();
+      document.getElementById('buildDate').textContent = now.toISOString().slice(0,10);
+      // OG URL auto
+      const u = location.href; document.getElementById('og-url').setAttribute('content', u);
+    })();
+
+    // Share helpers (X.com)
+    function makeTweetURL(text, url){
+      const q = new URLSearchParams({ text, url }).toString();
+      return `https://x.com/intent/tweet?${q}`;
+    }
+
+    // Main share button
+    document.getElementById('shareX').addEventListener('click', function(e){
+      e.preventDefault();
+      const text = 'FAFE EMPIRE® AI Quick ToolKit — handy, free tools for prompts & generative visuals';
+      const url  = location.href;
+      window.open(makeTweetURL(text, url), '_blank');
+    });
+
+    // Per‑tool share buttons
+    document.getElementById('shareT1').addEventListener('click', function(e){
+      e.preventDefault();
+      const text = 'JSON Prompt Builder — quick pro prompts (video/image)';
+      const url  = new URL('json_tool.html', location.href).toString();
+      window.open(makeTweetURL(text, url), '_blank');
+    });
+    document.getElementById('shareT2').addEventListener('click', function(e){
+      e.preventDefault();
+      const text = 'Nebular Spiral Symphony — interactive p5.js visual with shareable settings';
+      const url  = new URL('nebular_spiral_symphony_sharable_parameter_tool_p_5.html', location.href).toString();
+      window.open(makeTweetURL(text, url), '_blank');
+    });
+  </script>
+</body>
+</html>
