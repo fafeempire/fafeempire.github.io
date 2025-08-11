@@ -89,6 +89,12 @@
     .tiny{font-size:12px; opacity:.9}
     .pill{ display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px; border:1px solid var(--stroke); color:#d1c7ff; }
     .sep{opacity:.4; margin:0 6px}
+    
+    /* Status indicators */
+    .status{ padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600; margin-left:8px; }
+    .status.loading{ background:#ffa500; color:#000; }
+    .status.error{ background:#ff4444; color:#fff; }
+    .status.ready{ background:#4ade80; color:#000; }
   </style>
 </head>
 <body>
@@ -103,7 +109,7 @@
       <a class="btn primary" id="shareX" href="#" target="_blank" rel="noopener">⚡ Post this on X</a>
       <a class="btn" href="#tools">🧰 Browse Tools</a>
       <a class="btn" href="#games">🕹️ Games Hub</a>
-      <span class="pill">v1.1<span class="sep">•</span><span id="buildDate"></span></span>
+      <span class="pill">v1.2<span class="sep">•</span><span id="buildDate"></span></span>
     </div>
   </header>
 
@@ -143,7 +149,7 @@
         <div class="left">
           <div class="meta">Games • HTML5 Canvas</div>
           <h2 id="g-title">Games Hub — Play in Browser</h2>
-          <p class="subtitle">Pick a game below. You can <b>Quick‑Play</b> inline (opens a modal with the game embedded), or <b>Open Full Page</b>. Adding more games later is as simple as updating the <code>GAMES</code> list in this file.</p>
+          <p class="subtitle">Pick a game below. You can <b>Quick‑Play</b> inline (opens a modal with the game embedded), or <b>Open Full Page</b>. All games are self-contained HTML5 files.</p>
 
           <div class="select">
             <label for="gameSel" class="sr-only" style="position:absolute;left:-9999px">Choose game</label>
@@ -163,7 +169,12 @@
         <div class="right">
           <div class="meta">Available Games</div>
           <div id="gList" style="display:grid; gap:10px"></div>
-          <div class="subtitle" style="font-size:13px; margin-top:6px">Tip: Upload each game as a standalone <code>.html</code> file to this repo. This hub will load them in an iframe for inline play.</div>
+          <div class="subtitle" style="font-size:13px; margin-top:6px">
+            <strong>Status Legend:</strong> 
+            <span class="status ready">Ready</span> = Working
+            <span class="status error">Error</span> = File missing
+            <span class="status loading">Check</span> = Checking...
+          </div>
         </div>
       </section>
 
@@ -171,7 +182,7 @@
 
     <footer>
       <div>© <span id="year"></span> FAFE EMPIRE®. All rights reserved. Toolkit shipped for GitHub Pages.</div>
-      <div class="tiny">Keep this as <code>index.html</code>. Games should live as separate <code>.html</code> files in the same repo (no external scripts; same‑origin only).</div>
+      <div class="tiny">Save this as <code>index.html</code>. Games should be separate <code>.html</code> files in the same directory.</div>
     </footer>
   </main>
 
@@ -206,13 +217,53 @@
     const shareT2 = document.getElementById('shareT2');
     if(shareT2) shareT2.addEventListener('click', (e)=>{ e.preventDefault(); window.open(makeTweetURL('Nebular Spiral Symphony Controller', location.href + '#tools'), '_blank'); });
 
-    // --- Games registry (add new games here)
-    // title, file, description, tags
+    // --- Games registry with file validation
     const GAMES = [
-      { id:'orbit', title:'Orbit Guard', file:'orbit_guard_html_5_canvas_game_git_hub_pages_ready.html', desc:'Rotate a shield to block incoming shards and protect the core. Pure timing and angle reads.', tags:['Arcade','Timing','Shield','Canvas'] },
-      { id:'defender', title:'Space Defender+', file:'space_defender_plus.html', desc:'Retro shooter: waves of enemies, sine patterns, power shots. Keyboard + mobile touch zones.', tags:['Shooter','Waves','Retro','Canvas'] },
-      { id:'breaker', title:'Neon Breaker', file:'neon_breaker_canvas.html', desc:'Breakout‑style with powerups (widen, multiball, slow, score). Mouse or A/D movement.', tags:['Breakout','Powerups','Arcade','Canvas'] },
+      { 
+        id:'orbit', 
+        title:'Orbit Guard', 
+        file:'orbit_guard_html_5_canvas_game_git_hub_pages_ready.html', 
+        desc:'Rotate a shield to block incoming shards and protect the core. Pure timing and angle reads.', 
+        tags:['Arcade','Timing','Shield','Canvas'],
+        status: 'loading'
+      },
+      { 
+        id:'defender', 
+        title:'Space Defender+', 
+        file:'space_defender_plus.html', 
+        desc:'Retro shooter: waves of enemies, sine patterns, power shots. Keyboard + mobile touch zones.', 
+        tags:['Shooter','Waves','Retro','Canvas'],
+        status: 'loading'
+      },
+      { 
+        id:'breaker', 
+        title:'Neon Breaker', 
+        file:'neon_breaker_canvas.html', 
+        desc:'Breakout‑style with powerups (widen, multiball, slow, score). Mouse or A/D movement.', 
+        tags:['Breakout','Powerups','Arcade','Canvas'],
+        status: 'loading'
+      },
     ];
+
+    // --- File validation function
+    async function checkGameFile(game) {
+      try {
+        const response = await fetch(game.file, { method: 'HEAD' });
+        game.status = response.ok ? 'ready' : 'error';
+        game.statusText = response.ok ? 'Ready' : `${response.status} Error`;
+      } catch (error) {
+        game.status = 'error';
+        game.statusText = 'File not found';
+        console.warn(`Game file not found: ${game.file}`, error);
+      }
+    }
+
+    // --- Validate all game files
+    async function validateGames() {
+      const checks = GAMES.map(game => checkGameFile(game));
+      await Promise.all(checks);
+      renderList(); // Re-render with status updates
+    }
 
     // --- Populate selector and list
     const sel = document.getElementById('gameSel');
@@ -221,17 +272,24 @@
     const gTags = document.getElementById('gTags');
 
     function renderOptions(){
-      sel.innerHTML = GAMES.map((g,i)=>`<option value="${i}">${g.title}</option>`).join('');
+      sel.innerHTML = GAMES.map((g,i)=>`<option value="${i}">${g.title}${g.status === 'error' ? ' (Missing)' : ''}</option>`).join('');
     }
+
     function renderList(){
       list.innerHTML = GAMES.map((g,i)=>{
+        const statusClass = g.status === 'ready' ? 'ready' : g.status === 'error' ? 'error' : 'loading';
+        const statusText = g.statusText || (g.status === 'loading' ? 'Checking...' : g.status);
+        
         return `<div style="border:1px solid var(--stroke); border-radius:12px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:8px">
-          <div style="font-weight:800">${g.title}</div>
+          <div style="font-weight:800; display:flex; align-items:center;">
+            ${g.title}
+            <span class="status ${statusClass}">${statusText}</span>
+          </div>
           <div style="color:var(--muted); font-size:14px">${g.desc}</div>
           <div>${g.tags.map(t=>`<span class='tag'>${t}</span>`).join(' ')}</div>
           <div style="display:flex; gap:8px; flex-wrap:wrap">
-            <a class="btn primary" href="#" data-i="${i}" data-action="quick">▶ Quick‑Play</a>
-            <a class="btn" href="${g.file}" target="_blank" rel="noopener">⧉ Open Full Page</a>
+            <a class="btn ${g.status === 'ready' ? 'primary' : ''}" href="#" data-i="${i}" data-action="quick" ${g.status !== 'ready' ? 'style="opacity:0.5;pointer-events:none"' : ''}>▶ Quick‑Play</a>
+            <a class="btn" href="${g.file}" target="_blank" rel="noopener" ${g.status !== 'ready' ? 'style="opacity:0.5;pointer-events:none"' : ''}>⧉ Open Full Page</a>
           </div>
         </div>`;
       }).join('');
@@ -242,10 +300,25 @@
       gDesc.textContent = g.desc;
       gTags.innerHTML = g.tags.map(t=>`<span class='tag'>${t}</span>`).join('');
       document.getElementById('openTab').href = g.file;
+      
+      // Update quick-play button state
+      const quickPlayBtn = document.getElementById('quickPlay');
+      if (g.status === 'ready') {
+        quickPlayBtn.style.opacity = '1';
+        quickPlayBtn.style.pointerEvents = 'auto';
+        quickPlayBtn.className = 'btn primary';
+      } else {
+        quickPlayBtn.style.opacity = '0.5';
+        quickPlayBtn.style.pointerEvents = 'none';
+        quickPlayBtn.className = 'btn';
+      }
     }
 
     renderOptions(); renderList(); updateDetails(0);
     sel.addEventListener('change', ()=> updateDetails(+sel.value));
+
+    // Start file validation
+    validateGames();
 
     // --- Quick‑Play modal
     const modal = document.getElementById('modal');
@@ -255,15 +328,28 @@
     const mClose = document.getElementById('mClose');
 
     function openModalFor(index){
-      const g = GAMES[index]; if(!g) return;
+      const g = GAMES[index]; 
+      if(!g || g.status !== 'ready') {
+        alert(`Game "${g?.title || 'Unknown'}" is not available. Please check if the file exists.`);
+        return;
+      }
       mTitle.textContent = `Quick‑Play — ${g.title}`;
-      mFrame.src = g.file; // same‑origin (same repo) allows embedding
+      mFrame.src = g.file;
       mOpen.onclick = ()=> window.open(g.file, '_blank');
       modal.classList.add('open');
     }
-    function closeModal(){ mFrame.src = 'about:blank'; modal.classList.remove('open'); }
+    
+    function closeModal(){ 
+      mFrame.src = 'about:blank'; 
+      modal.classList.remove('open'); 
+    }
 
-    document.getElementById('quickPlay').addEventListener('click', (e)=>{ e.preventDefault(); openModalFor(+sel.value); });
+    document.getElementById('quickPlay').addEventListener('click', (e)=>{ 
+      e.preventDefault(); 
+      const selectedIndex = +sel.value;
+      openModalFor(selectedIndex); 
+    });
+    
     mClose.addEventListener('click', closeModal);
     modal.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
 
@@ -272,12 +358,25 @@
       const a = e.target.closest('a.btn'); if(!a) return;
       const i = +a.getAttribute('data-i');
       const action = a.getAttribute('data-action');
-      if(action==='quick'){ e.preventDefault(); openModalFor(i); }
+      if(action==='quick'){ 
+        e.preventDefault(); 
+        openModalFor(i); 
+      }
     });
 
-    // --- Simple helper for adding games later (example):
-    // GAMES.push({ id:'newid', title:'My New Game', file:'my_new_game.html', desc:'One‑liner.', tags:['Tag1','Tag2'] });
-    // Then call renderOptions(); renderList(); updateDetails(0);
+    // --- Console helper for adding games later
+    window.addGame = function(gameObj) {
+      // Example: addGame({id:'newgame', title:'My Game', file:'my_game.html', desc:'Description', tags:['Tag1','Tag2']})
+      gameObj.status = 'loading';
+      GAMES.push(gameObj);
+      checkGameFile(gameObj).then(() => {
+        renderOptions(); 
+        renderList(); 
+        updateDetails(0);
+      });
+    };
+
+    console.log('FAFE EMPIRE Games Hub loaded. Use addGame({...}) to add new games.');
   </script>
 </body>
 </html>
