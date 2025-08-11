@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Breaker</title>
+<style>
+  :root{--c1:#7df9ff;--c2:#ff6ad5;--c3:#a6ff4d;--fg:#e7faff;--bg:#0a0b20}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{display:flex;align-items:center;justify-content:center;background:radial-gradient(1000px 700px at 50% 20%,#171a3a 0%,#0a0b20 60%,#050510 100%);color:var(--fg);font:16px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;overflow:hidden}
+  #wrap{position:relative;width:min(96vw,900px);aspect-ratio:4/3;border:3px solid var(--c1);border-radius:16px;background:#0008;box-shadow:0 0 40px #00ffff30,inset 0 0 50px #0008;overflow:hidden}
+  canvas{width:100%;height:100%;display:block}
+  #hud{position:absolute;top:8px;left:0;right:0;display:flex;justify-content:center;gap:14px;font-weight:700;text-shadow:0 0 8px #000}
+  .chip{background:#0009;border:1px solid #fff2;border-radius:999px;padding:6px 12px}
+  #overlay{position:absolute;inset:0;display:grid;place-items:center;background:#000a}
+  #card{border:2px solid var(--c2);border-radius:16px;padding:22px 20px;text-align:center;background:#0b0014e6;width:min(520px,92%);box-shadow:0 0 40px #ff008033}
+  h1{font-size:22px;margin-bottom:8px;color:var(--c1);letter-spacing:.5px}
+  p{opacity:.9;margin:.25rem 0}
+  .btnrow{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}
+  button{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;font-weight:800;background:linear-gradient(45deg,var(--c1),#0080ff);color:#001018;box-shadow:0 0 16px #00ffff3a}
+  button.secondary{background:linear-gradient(45deg,#333,#555);color:#e9e9e9}
+  #toggles{position:absolute;right:8px;bottom:8px;display:flex;gap:8px;flex-wrap:wrap}
+  label{background:#0009;border:1px solid #fff2;padding:6px 8px;border-radius:8px;display:flex;gap:6px;align-items:center}
+  input[type="checkbox"]{accent-color:var(--c3)}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="c" width="800" height="600"></canvas>
+<div id="hud" aria-hidden="true">
+  <div class="chip">Score: <span id="score">0</span></div>
+  <div class="chip">Lives: <span id="lives">3</span></div>
+  <div class="chip">Level: <span id="level">1</span></div>
+  <div class="chip">Best: <span id="best">0</span></div>
+</div>
+<div id="overlay"><div id="card">
+  <h1>Neon Breaker</h1>
+  <p>Mouse or A/D to move · Space to launch · P pause · R restart · M mute</p>
+  <p>Catch powerups: <b>⤢</b> widen, <b>🐣</b> multiball, <b>🐌</b> slow, <b>★</b> points</p>
+  <div class="btnrow">
+    <button id="playBtn">Play</button>
+    <button class="secondary" id="howBtn">How to Play</button>
+  </div>
+</div></div>
+<div id="toggles">
+  <label><input type="checkbox" id="mouseCtrl" checked> Mouse control</label>
+  <label><input type="checkbox" id="reduced"> Reduced motion</label>
+</div>
+</div>
+<script>
+(() => {
+  const cvs = document.getElementById('c');
+  const ctx = cvs.getContext('2d');
+  const VIRTUAL_W = 800, VIRTUAL_H = 600;
+  function resize(){
+    const r = document.getElementById('wrap').getBoundingClientRect();
+    const dpr = Math.min(devicePixelRatio||1,2);
+    cvs.width = Math.round(r.width*dpr); cvs.height = Math.round(r.height*dpr);
+    ctx.setTransform(cvs.width/VIRTUAL_W,0,0,cvs.height/VIRTUAL_H,0,0);
+  }
+  addEventListener('resize', resize, {passive:true}); resize();
+
+  // State
+  let running=false, paused=false, muted=false, reduced=false;
+  let score=0, lives=3, level=1, best=+(localStorage.getItem('nb_best')||0);
+  document.getElementById('best').textContent = best;
+  let mouseCtrl = true;
+  document.getElementById('mouseCtrl').addEventListener('change', e=> mouseCtrl=e.target.checked);
+  document.getElementById('reduced').addEventListener('change', e=> reduced=e.target.checked);
+
+  const keys={};
+  addEventListener('keydown', e=>{ const k=e.key.toLowerCase(); keys[k]=true; if(['arrowleft','arrowright',' '].includes(k)) e.preventDefault(); });
+  addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+  addEventListener('keydown', e=>{
+    const k=e.key.toLowerCase();
+    if(k==='p'){ paused=!paused; overlay(paused?'Paused':''); }
+    if(k==='r'){ restart(); }
+    if(k==='m'){ muted=!muted; }
+    if(k===' '){ launchBall(); }
+  });
+
+  // Audio
+  let ac, beep;
+  function audioInit(){
+    try{
+      if(ac) return; ac=new (window.AudioContext||window.webkitAudioContext)();
+      const master=ac.createGain(); master.gain.value=0.12; master.connect(ac.destination);
+      function blip(freq=440, t=0.06){ const o=ac.createOscillator(), g=ac.createGain(); o.type='sawtooth'; o.frequency.value=freq; g.gain.setValueAtTime(1,ac.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+t); o.connect(g).connect(master); o.start(); o.stop(ac.currentTime+t); }
+      beep = (f,t)=> !muted && blip(f,t);
+    }catch(e){}
+  }
+  addEventListener('pointerdown', audioInit, {once:true});
+
+  // Entities
+  const paddle = { x: VIRTUAL_W/2, y: VIRTUAL_H-40, w: 100, h: 14, speed: 8, targetX: VIRTUAL_W/2 };
+  const balls = [];
+  const powerups = [];
+  const bricks = [];
+  const BRICK_COLS_BASE=10, BRICK_ROWS_BASE=5;
+
+  const overlayEl = document.getElementById('overlay');
+  const cardEl = document.getElementById('card');
+  const howBtn = document.getElementById('howBtn');
+  const playBtn = document.getElementById('playBtn');
+  howBtn.addEventListener('click', ()=>{
+    cardEl.querySelector('h1').textContent='How to Play';
+    cardEl.querySelector('p').innerHTML='Move paddle with <b>mouse</b> (or A/D). Press <b>Space</b> to launch the ball. Break all bricks to advance. Catch powerups.';
+  });
+  playBtn.addEventListener('click', ()=>{ start(); });
+
+  cvs.addEventListener('mousemove', e=>{
+    if(!mouseCtrl) return;
+    const r = cvs.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width * VIRTUAL_W;
+    paddle.targetX = nx;
+  });
+
+  function overlay(txt){
+    if(!txt){ overlayEl.style.display = paused||!running ? 'grid':'none'; cardEl.querySelector('h1').textContent = paused?'Paused':'Neon Breaker'; return; }
+    overlayEl.style.display='grid'; cardEl.querySelector('h1').textContent = txt;
+  }
+  function updateHUD(){
+    scoreEl.textContent=score; livesEl.textContent=lives; levelEl.textContent=level; bestEl.textContent=best;
+  }
+  const scoreEl=document.getElementById('score');
+  const livesEl=document.getElementById('lives');
+  const levelEl=document.getElementById('level');
+  const bestEl=document.getElementById('best');
+
+  function makeLevel(){
+    bricks.length=0;
+    const cols = Math.min(14, BRICK_COLS_BASE + Math.floor((level-1)/2));
+    const rows = Math.min(9, BRICK_ROWS_BASE + Math.floor((level-1)/3));
+    const pad=30, top=70; const gap=4;
+    const bw = (VIRTUAL_W - pad*2 - gap*(cols-1))/cols;
+    const bh = 22;
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const hp = 1 + ((r+c+level)%3); // 1..3
+        bricks.push({ x: pad + c*(bw+gap), y: top + r*(bh+gap), w:bw, h:bh, hp });
+      }
+    }
+  }
+
+  function resetBall(){
+    balls.length=0;
+    balls.push({ x:paddle.x, y:paddle.y-16, vx:0, vy:0, r:7, stuck:true, speed:6 });
+  }
+  function launchBall(){
+    for(const b of balls){ if(b.stuck){ b.stuck=false; b.vx=(Math.random()*2-1)*3; b.vy=-b.speed; beep&&beep(700,0.04);} }
+  }
+
+  function start(){
+    score=0; lives=3; level=1; best=+(localStorage.getItem('nb_best')||0); updateHUD();
+    paddle.x=VIRTUAL_W/2; paddle.targetX=paddle.x; paddle.w=100; paddle.speed=8;
+    makeLevel(); resetBall(); running=true; paused=false; overlayEl.style.display='none';
+  }
+  function restart(){ start(); }
+  function gameOver(){
+    running=false; paused=false; best=Math.max(best,score); localStorage.setItem('nb_best',best); updateHUD();
+    cardEl.querySelector('h1').textContent='Game Over';
+    cardEl.querySelector('p').innerHTML=`<b>Final Score:</b> ${score} • <b>Best:</b> ${best}`;
+    overlayEl.style.display='grid';
+  }
+
+  function rectCircleCollide(cx,cy,cr, rx,ry,rw,rh){
+    const nx = Math.max(rx, Math.min(cx, rx+rw));
+    const ny = Math.max(ry, Math.min(cy, ry+rh));
+    const dx = cx-nx, dy = cy-ny; return dx*dx+dy*dy <= cr*cr;
+  }
+
+  function spawnPower(x,y){
+    if(Math.random()<0.25){ // 25% drop
+      const types=['widen','multi','slow','score'];
+      const t = types[Math.floor(Math.random()*types.length)];
+      powerups.push({x,y,vy:2.2,w:18,h:18,t});
+    }
+  }
+
+  function applyPower(p){
+    if(p.t==='widen'){ paddle.w = Math.min(180, paddle.w+30); beep&&beep(300,0.08); }
+    if(p.t==='multi'){
+      const nb=[]; for(const b of balls){ if(!b.stuck){ nb.push({x:b.x,y:b.y,vx:-b.vx,vy:b.vy,r:7,stuck:false,speed:b.speed}); } }
+      balls.push(...nb); beep&&beep(520,0.08);
+    }
+    if(p.t==='slow'){ for(const b of balls){ b.vx*=0.8; b.vy*=0.8; b.speed=Math.max(4,b.speed*0.9);} beep&&beep(240,0.08); }
+    if(p.t==='score'){ score+=100; updateHUD(); beep&&beep(800,0.06); }
+  }
+
+  let tPrev=performance.now();
+  function loop(now){
+    const dt = Math.min(32, now-tPrev); tPrev=now;
+    if(!paused) update(dt);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function drawBackdrop(){
+    ctx.fillStyle='rgba(0,0,0,'+(reduced?0.5:0.3)+')'; ctx.fillRect(0,0,VIRTUAL_W,VIRTUAL_H);
+    // glow grid
+    if(!reduced){
+      ctx.globalAlpha=0.08; ctx.strokeStyle='#7df9ff'; ctx.lineWidth=1;
+      for(let x=0;x<=VIRTUAL_W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,VIRTUAL_H); ctx.stroke(); }
+      for(let y=0;y<=VIRTUAL_H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(VIRTUAL_W,y); ctx.stroke(); }
+      ctx.globalAlpha=1;
+    }
+  }
+
+  function update(dt){
+    if(!running) return;
+    drawBackdrop();
+
+    // Paddle control
+    if(mouseCtrl){
+      // smooth follow
+      const dx = paddle.targetX - paddle.x; paddle.x += Math.sign(dx)*Math.min(Math.abs(dx), paddle.speed);
+    } else {
+      const left = keys['a']||keys['arrowleft'];
+      const right= keys['d']||keys['arrowright'];
+      if(left) paddle.x -= paddle.speed; if(right) paddle.x += paddle.speed;
+    }
+    paddle.x = Math.max(paddle.w/2, Math.min(VIRTUAL_W-paddle.w/2, paddle.x));
+
+    // Draw paddle
+    ctx.fillStyle='#0ff';
+    ctx.fillRect(paddle.x-paddle.w/2, paddle.y, paddle.w, paddle.h);
+    ctx.fillStyle='#fff'; ctx.fillRect(paddle.x-paddle.w/2+8, paddle.y+3, paddle.w-16, 3);
+
+    // Balls
+    for(let i=balls.length-1;i>=0;i--){
+      const b = balls[i];
+      if(b.stuck){ b.x=paddle.x; b.y=paddle.y-16; }
+      else { b.x += b.vx; b.y += b.vy; }
+
+      // walls
+      if(b.x-b.r<0){ b.x=b.r; b.vx=Math.abs(b.vx); beep&&beep(500,0.02); }
+      if(b.x+b.r>VIRTUAL_W){ b.x=VIRTUAL_W-b.r; b.vx=-Math.abs(b.vx); beep&&beep(500,0.02); }
+      if(b.y-b.r<0){ b.y=b.r; b.vy=Math.abs(b.vy); beep&&beep(500,0.02); }
+
+      // paddle collision
+      if(rectCircleCollide(b.x,b.y,b.r, paddle.x-paddle.w/2, paddle.y, paddle.w, paddle.h)){
+        b.y = paddle.y - b.r - 0.1;
+        // reflect with angle based on hit position
+        const hit = (b.x - paddle.x) / (paddle.w/2); // -1..1
+        const angle = hit * Math.PI/3; // spread
+        const sp = Math.max(4, Math.hypot(b.vx,b.vy));
+        b.vx = sp * Math.sin(angle);
+        b.vy = -Math.abs(sp * Math.cos(angle));
+        beep&&beep(620,0.03);
+      }
+
+      // fall out
+      if(b.y - b.r > VIRTUAL_H){ balls.splice(i,1); if(balls.length===0){ lives--; if(lives<=0){ gameOver(); return; } resetBall(); updateHUD(); }
+      }
+
+      // draw ball
+      ctx.fillStyle='#a6ff4d'; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
+    }
+
+    // Bricks
+    for(let i=bricks.length-1;i>=0;i--){
+      const br = bricks[i];
+      // draw
+      const col = br.hp===3?'#ff6ad5':(br.hp===2?'#7df9ff':'#a6ff4d');
+      ctx.fillStyle=col; ctx.fillRect(br.x,br.y,br.w,br.h);
+      ctx.fillStyle='#fff'; ctx.fillRect(br.x+6,br.y+4,br.w-12,3);
+
+      // collisions per ball
+      for(const b of balls){
+        if(b.stuck) continue;
+        // AABB vs circle quick reject
+        if(b.x+b.r < br.x || b.x-b.r > br.x+br.w || b.y+b.r < br.y || b.y-b.r > br.y+br.h) continue;
+        // Find overlap side
+        const prevX = b.x - b.vx, prevY = b.y - b.vy;
+        const wasLeft = prevX <= br.x, wasRight = prevX >= br.x+br.w;
+        const wasAbove = prevY <= br.y, wasBelow = prevY >= br.y+br.h;
+        if(wasLeft && !wasAbove && !wasBelow){ b.vx = -Math.abs(b.vx); b.x = br.x - b.r; }
+        else if(wasRight && !wasAbove && !wasBelow){ b.vx = Math.abs(b.vx); b.x = br.x+br.w + b.r; }
+        else { b.vy = (prevY < br.y ? -1:1) * -Math.abs(b.vy); b.y = (prevY < br.y ? br.y - b.r : br.y+br.h + b.r); }
+        br.hp--; score+=5; updateHUD(); beep&&beep(760,0.02);
+        if(br.hp<=0){ bricks.splice(i,1); spawnPower(br.x+br.w/2, br.y+br.h/2); score+=10; updateHUD(); }
+        break;
+      }
+    }
+
+    // Powerups
+    for(let i=powerups.length-1;i>=0;i--){
+      const p = powerups[i]; p.y += p.vy;
+      // draw
+      ctx.fillStyle='#0008'; ctx.fillRect(p.x-10,p.y-10,20,20); // shadow
+      ctx.fillStyle='#fff';
+      let glyph='★'; if(p.t==='widen') glyph='⤢'; else if(p.t==='multi') glyph='🐣'; else if(p.t==='slow') glyph='🐌';
+      ctx.font='16px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(glyph, p.x, p.y);
+      if(p.y>VIRTUAL_H+30){ powerups.splice(i,1); continue; }
+      // catch
+      if(p.x>=paddle.x-paddle.w/2 && p.x<=paddle.x+paddle.w/2 && p.y>=paddle.y && p.y<=paddle.y+paddle.h+4){
+        applyPower(p); powerups.splice(i,1);
+      }
+    }
+
+    // Win -> next level
+    if(bricks.length===0){ level++; makeLevel(); // small speedup
+      for(const b of balls){ if(!b.stuck){ const s=Math.hypot(b.vx,b.vy)*1.05; const ang=Math.atan2(b.vy,b.vx); b.vx=Math.cos(ang)*s; b.vy=Math.sin(ang)*s; }}
+      beep&&beep(420,0.15);
+    }
+  }
+
+  // Boot
+  start(); overlay('Neon Breaker');
+})();
+</script>
+</body>
+</html>
