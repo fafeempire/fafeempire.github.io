@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit Guard</title>
+  <style>
+    :root{
+      --bg1:#0a0b15;--bg2:#141838;--fg:#e6f3ff;--accent:#7df9ff;--hit:#ff7a7a;--ok:#8cff9a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple Color Emoji,Segoe UI Emoji;
+         background: radial-gradient(1200px 900px at 50% 35%, var(--bg2), var(--bg1));
+         color:var(--fg);display:flex;align-items:center;justify-content:center}
+    #wrap{width:100%;max-width:900px;aspect-ratio:16/9;border-radius:18px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.5);position:relative}
+    canvas{display:block;width:100%;height:100%;background: radial-gradient(900px 600px at 50% 50%, #111a3a 0%, #0b0f24 60%, #070913 100%)}
+    .ui{position:absolute;inset:0;pointer-events:none}
+    .topbar{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;gap:8px;padding:10px 14px;font-weight:600;letter-spacing:.5px}
+    .badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);padding:6px 10px;border-radius:999px}
+    .ctr{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px}
+    .title{font-size:clamp(24px,4vw,38px);font-weight:800;letter-spacing:.8px;margin-bottom:10px}
+    .small{opacity:.8;font-size:clamp(12px,2.1vw,14px)}
+    .big{font-size:clamp(16px,2.5vw,18px)}
+    .btns{display:flex;gap:10px;justify-content:center;margin-top:16px}
+    .btn{pointer-events:auto;background:#1c224a;border:1px solid rgba(255,255,255,.1);padding:10px 14px;border-radius:12px;cursor:pointer;user-select:none}
+    .btn:hover{filter:brightness(1.15)}
+    .mobile-hint{position:absolute;left:0;right:0;bottom:0;padding:10px;text-align:center;opacity:.7}
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720" aria-label="Orbit Guard game canvas" role="img"></canvas>
+  <div class="ui">
+    <div class="topbar">
+      <div id="score" class="badge">Score: 0</div>
+      <div id="lives" class="badge">Lives: 3</div>
+      <div id="level" class="badge">Level: 1</div>
+    </div>
+    <div id="menu" class="ctr">
+      <div>
+        <div class="title">ORBIT GUARD</div>
+        <div class="big">Rotate your shield to block incoming shards. Survive as long as possible.</div>
+        <div class="small" style="margin-top:8px">Desktop: ← → to rotate • Space to dash (short boost) • P to pause • R to restart</div>
+        <div class="small">Mobile: tap/hold left/right sides to rotate • double-tap to dash</div>
+        <div class="btns"><div class="btn" id="playBtn">Play</div><div class="btn" id="howBtn">How to Play</div></div>
+      </div>
+    </div>
+    <div id="how" class="ctr" style="display:none">
+      <div>
+        <div class="title">How to Play</div>
+        <div class="big" style="max-width:60ch;margin:0 auto">
+          You control a rotating arc-shield around the core. Shards spawn at the rim and race toward the center.
+          Align your shield with their approach angle right before impact to deflect them. 
+          Chain successful blocks to raise your multiplier and level. Miss three and the core collapses.
+        </div>
+        <div class="small" style="margin-top:10px">Tip: time the dash for last-second saves. The arc shrinks as the level rises—stay sharp.</div>
+        <div class="btns"><div class="btn" id="backBtn">Back</div></div>
+      </div>
+    </div>
+    <div id="over" class="ctr" style="display:none">
+      <div>
+        <div class="title">Core Breached</div>
+        <div class="big">Final Score: <span id="finalScore">0</span></div>
+        <div class="small" id="bestLine" style="margin-top:6px"></div>
+        <div class="btns"><div class="btn" id="retryBtn">Play Again</div></div>
+      </div>
+    </div>
+    <div class="mobile-hint small" id="mhint"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  // Security posture: no external scripts, no eval, no user text input, no URL param parsing.
+  // All logic lives here; drawing uses Canvas only.
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const dpi = Math.min(window.devicePixelRatio || 1, 2);
+  const W = 1280, H = 720; // base internal resolution
+  canvas.width = W * dpi; canvas.height = H * dpi; ctx.scale(dpi, dpi);
+
+  // UI elements
+  const ui = {
+    score: document.getElementById('score'),
+    lives: document.getElementById('lives'),
+    level: document.getElementById('level'),
+    menu: document.getElementById('menu'),
+    how: document.getElementById('how'),
+    over: document.getElementById('over'),
+    final: document.getElementById('finalScore'),
+    bestLine: document.getElementById('bestLine'),
+    playBtn: document.getElementById('playBtn'),
+    howBtn: document.getElementById('howBtn'),
+    backBtn: document.getElementById('backBtn'),
+    retryBtn: document.getElementById('retryBtn'),
+    mhint: document.getElementById('mhint')
+  };
+
+  // Game state
+  const state = {
+    running: false,
+    paused: false,
+    lives: 3,
+    score: 0,
+    mult: 1,
+    level: 1,
+    t: 0,
+    spawnTimer: 0,
+    shards: [],
+    particles: [],
+    best: Number(localStorage.getItem('orbit-best')||0)
+  };
+
+  // Player shield
+  const player = {
+    angle: 0,           // radians
+    speed: 2.6,         // rad/s base rotation
+    dash: 0,            // dash cooldown
+    arc: deg(70),       // arc size (shrinks with level)
+  };
+
+  function deg(a){return a*Math.PI/180}
+  function rand(a=0,b=1){return a+Math.random()*(b-a)}
+  function clamp(v,a,b){return v<a?a:v>b?b:v}
+
+  // Input
+  const keys = new Set();
+  let touchingLeft=false, touchingRight=false, lastTap=0;
+
+  window.addEventListener('keydown', (e)=>{
+    if(['ArrowLeft','ArrowRight',' ','KeyP','KeyR'].includes(e.code)) e.preventDefault();
+    if(e.code==='KeyP'){ togglePause(); return; }
+    if(e.code==='KeyR'){ if(!state.running) start(); return; }
+    keys.add(e.code);
+  });
+  window.addEventListener('keyup', (e)=> keys.delete(e.code));
+
+  // Mobile touch zones
+  const wrap = document.getElementById('wrap');
+  ui.mhint.textContent = ('ontouchstart' in window)? 'Touch & hold left/right to rotate • double-tap to dash' : '';
+  wrap.addEventListener('touchstart', (e)=>{
+    const now = performance.now();
+    if(now-lastTap < 280) dash();
+    lastTap = now;
+    for(const t of e.touches){
+      const x = t.clientX - wrap.getBoundingClientRect().left;
+      if(x < wrap.clientWidth/2) touchingLeft=true; else touchingRight=true;
+    }
+  }, {passive:false});
+  wrap.addEventListener('touchend', ()=>{touchingLeft=false; touchingRight=false;});
+
+  // Buttons
+  ui.playBtn.onclick = start;
+  ui.howBtn.onclick = ()=>{ui.menu.style.display='none'; ui.how.style.display='grid';};
+  ui.backBtn.onclick = ()=>{ui.how.style.display='none'; ui.menu.style.display='grid';};
+  ui.retryBtn.onclick = start;
+
+  function show(el){ el.style.display='grid'; }
+  function hide(el){ el.style.display='none'; }
+
+  function start(){
+    Object.assign(state,{running:true,paused:false,lives:3,score:0,mult:1,level:1,t:0,spawnTimer:0,shards:[],particles:[]});
+    Object.assign(player,{angle:0,speed:2.6,dash:0,arc:deg(70)});
+    hide(ui.menu); hide(ui.how); hide(ui.over);
+    loop(performance.now());
+  }
+
+  function gameOver(){
+    state.running=false; state.paused=false;
+    ui.final.textContent = Math.floor(state.score);
+    if(state.score > state.best){ state.best = state.score; localStorage.setItem('orbit-best', String(Math.floor(state.best))); }
+    ui.bestLine.textContent = `Best: ${Math.floor(state.best)}`;
+    show(ui.over);
+  }
+
+  function togglePause(){ if(!state.running) return; state.paused = !state.paused; }
+
+  function dash(){ if(player.dash<=0){ player.dash = .28; } }
+
+  // Shard factory
+  function spawnShard(){
+    const ang = rand(0, Math.PI*2);
+    const speed = 110 + state.level*12 + rand(-6,6);
+    const hue = Math.floor(rand(170,220));
+    state.shards.push({
+      angle: ang,
+      r: 300,   // spawn radius
+      vr: -speed/60, // px per frame toward center (assuming ~60fps)
+      hit:false,
+      col:`hsl(${hue} 90% 65%)`
+    });
+  }
+
+  function spawnParticles(x,y,baseCol){
+    for(let i=0;i<10;i++){
+      state.particles.push({x,y, vx:rand(-2,2), vy:rand(-2,2), life: rand(0.4,0.8), t:0, col: baseCol});
+    }
+  }
+
+  // Geometry helpers
+  const center = {x: W/2, y: H/2+10};
+  const rim = 300; // drawing rim radius
+  const coreR = 32; // core radius
+
+  function drawBackground(){
+    // soft grid rings
+    ctx.save();
+    ctx.translate(center.x, center.y);
+    for(let r=80;r<=rim;r+=40){
+      ctx.globalAlpha = .06;
+      ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.strokeStyle = '#9eb6ff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawCore(){
+    // pulsing core
+    const pulse = 1 + Math.sin(state.t*2)*0.05;
+    const grd = ctx.createRadialGradient(center.x, center.y, 4, center.x, center.y, coreR*1.2);
+    grd.addColorStop(0, '#b7ecff');
+    grd.addColorStop(1, '#204a7a');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(center.x, center.y, coreR*pulse, 0, Math.PI*2); ctx.fill();
+  }
+
+  function drawShield(){
+    const arc = player.arc;
+    ctx.save();
+    ctx.translate(center.x, center.y);
+    ctx.rotate(player.angle);
+    const inner = coreR + 28, outer = coreR + 44;
+    ctx.beginPath();
+    ctx.arc(0,0,outer,-arc/2, arc/2);
+    ctx.arc(0,0,inner, arc/2, -arc/2, true);
+    ctx.closePath();
+    const grd = ctx.createLinearGradient(0,-outer,0,outer);
+    grd.addColorStop(0, 'rgba(255,255,255,.7)');
+    grd.addColorStop(1, 'rgba(125,249,255,.7)');
+    ctx.fillStyle = grd;
+    ctx.shadowColor = '#7df9ff';
+    ctx.shadowBlur = 18;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function update(dt){
+    state.t += dt;
+    if(player.dash>0){ player.dash -= dt; }
+
+    // Rotation
+    const rotSpd = player.speed * (player.dash>0 ? 2.2 : 1);
+    const left = keys.has('ArrowLeft') || touchingLeft;
+    const right = keys.has('ArrowRight') || touchingRight;
+    if(left && !right) player.angle -= rotSpd*dt;
+    if(right && !left) player.angle += rotSpd*dt;
+
+    // Dash key
+    if(keys.has('Space')) { dash(); keys.delete('Space'); }
+
+    // Level & difficulty scaling with time and streak
+    const baseSpawn = clamp(0.9 - state.level*0.05, 0.35, 0.9);
+    state.spawnTimer -= dt;
+    if(state.spawnTimer<=0){
+      spawnShard();
+      state.spawnTimer = baseSpawn + rand(-0.1,0.1);
+    }
+
+    // Shrink arc slowly as level rises
+    player.arc = deg(clamp(70 - (state.level-1)*3, 34, 70));
+
+    // Update shards
+    for(const s of state.shards){ s.r += s.vr; }
+    // Check collisions when shards cross the shield radius (just outside core)
+    for(let i=state.shards.length-1;i>=0;i--){
+      const s = state.shards[i];
+      const impactR = coreR + 36; // where shield sits
+      if(s.r <= impactR && !s.hit){
+        // Compare angular difference between shard approach and shield center
+        const diff = Math.atan2(Math.sin(s.angle - player.angle), Math.cos(s.angle - player.angle));
+        if(Math.abs(diff) <= player.arc/2){
+          // Blocked
+          s.hit=true; state.score += 10*state.mult; state.mult = clamp(state.mult+0.05, 1, 5);
+          spawnParticles(center.x + Math.cos(s.angle)*impactR, center.y + Math.sin(s.angle)*impactR, s.col);
+          state.shards.splice(i,1);
+          // Level up every 200 pts
+          const newLevel = 1 + Math.floor(state.score/200);
+          if(newLevel !== state.level){ state.level = newLevel; }
+        } else {
+          // Missed → core damage
+          state.mult = 1; state.lives -= 1;
+          flash('#ff3860');
+          if(state.lives<=0){ gameOver(); return; }
+          // remove shard regardless
+          state.shards.splice(i,1);
+        }
+      } else if(s.r <= 6){
+        // Safety cleanup if something slips through
+        state.shards.splice(i,1);
+      }
+    }
+
+    // Particles
+    for(let i=state.particles.length-1;i>=0;i--){
+      const p = state.particles[i]; p.t += dt; p.x += p.vx*60*dt; p.y += p.vy*60*dt;
+      if(p.t >= p.life) state.particles.splice(i,1);
+    }
+
+    // UI
+    ui.score.textContent = 'Score: ' + Math.floor(state.score);
+    ui.lives.textContent = 'Lives: ' + state.lives;
+    ui.level.textContent = 'Level: ' + state.level;
+  }
+
+  let flashT = 0, flashCol = '#fff';
+  function flash(col){ flashT = .2; flashCol = col; }
+
+  function render(){
+    // Clear
+    ctx.clearRect(0,0,W,H);
+
+    drawBackground();
+
+    // Rim
+    ctx.save();
+    ctx.translate(center.x, center.y);
+    ctx.globalAlpha = .15;
+    ctx.beginPath(); ctx.arc(0,0,rim,0,Math.PI*2); ctx.strokeStyle = '#7da0ff'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.restore();
+
+    // Shards
+    for(const s of state.shards){
+      const x = center.x + Math.cos(s.angle)*s.r;
+      const y = center.y + Math.sin(s.angle)*s.r;
+      ctx.save();
+      ctx.translate(x,y); ctx.rotate(s.angle);
+      ctx.fillStyle = s.col; ctx.strokeStyle = 'rgba(255,255,255,.6)';
+      ctx.beginPath();
+      ctx.moveTo(10,0); ctx.lineTo(-8,6); ctx.lineTo(-6,0); ctx.lineTo(-8,-6); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Particles
+    for(const p of state.particles){
+      ctx.globalAlpha = 1 - (p.t/p.life);
+      ctx.fillStyle = p.col;
+      ctx.fillRect(p.x-2, p.y-2, 4, 4);
+      ctx.globalAlpha = 1;
+    }
+
+    drawShield();
+    drawCore();
+
+    // Screen flash on hit
+    if(flashT>0){
+      ctx.fillStyle = flashCol; ctx.globalAlpha = clamp(flashT*2,0,0.35);
+      ctx.fillRect(0,0,W,H); ctx.globalAlpha = 1; flashT -= 1/60;
+    }
+  }
+
+  let last = 0;
+  function loop(ts){
+    if(!state.running){ return; }
+    requestAnimationFrame(loop);
+    if(state.paused){ last = ts; return; }
+    const dt = Math.min((ts - last)/1000, 0.033) || 0; last = ts;
+    update(dt); render();
+  }
+
+  // Start at menu
+  show(ui.menu);
+})();
+</script>
+</body>
+</html>
